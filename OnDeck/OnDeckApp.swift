@@ -9,9 +9,12 @@ import SwiftUI
 
 @main
 struct OnDeckApp: App {
+    @StateObject var statsService = MLBStatsService()
+    
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(statsService)
         }
     }
 }

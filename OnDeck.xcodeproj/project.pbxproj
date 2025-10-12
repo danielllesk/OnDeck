@@ -14,6 +14,11 @@
 		50FC32252E9B762800C242DC /* OnDeckTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC32242E9B762800C242DC /* OnDeckTests.swift */; };
 		50FC322F2E9B762800C242DC /* OnDeckUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC322E2E9B762800C242DC /* OnDeckUITests.swift */; };
 		50FC32312E9B762800C242DC /* OnDeckUITestsLaunchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC32302E9B762800C242DC /* OnDeckUITestsLaunchTests.swift */; };
+		50FC323E2E9B981F00C242DC /* OverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC323D2E9B981F00C242DC /* OverlayView.swift */; };
+		50FC32402E9B985500C242DC /* MLBStatsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC323F2E9B985500C242DC /* MLBStatsService.swift */; };
+		50FC32472E9B9B3000C242DC /* GameState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC32462E9B9B3000C242DC /* GameState.swift */; };
+		50FC32492E9B9C6100C242DC /* ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC32482E9B9C6100C242DC /* ViewModel.swift */; };
+		50FC324B2E9C76CE00C242DC /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 50FC324A2E9C76CE00C242DC /* .gitignore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -45,6 +50,11 @@
 		50FC322A2E9B762800C242DC /* OnDeckUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = OnDeckUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		50FC322E2E9B762800C242DC /* OnDeckUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeckUITests.swift; sourceTree = "<group>"; };
 		50FC32302E9B762800C242DC /* OnDeckUITestsLaunchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeckUITestsLaunchTests.swift; sourceTree = "<group>"; };
+		50FC323D2E9B981F00C242DC /* OverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayView.swift; sourceTree = "<group>"; };
+		50FC323F2E9B985500C242DC /* MLBStatsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBStatsService.swift; sourceTree = "<group>"; };
+		50FC32462E9B9B3000C242DC /* GameState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameState.swift; sourceTree = "<group>"; };
+		50FC32482E9B9C6100C242DC /* ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModel.swift; sourceTree = "<group>"; };
+		50FC324A2E9C76CE00C242DC /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -75,6 +85,7 @@
 		50FC32062E9B762600C242DC = {
 			isa = PBXGroup;
 			children = (
+				50FC324A2E9C76CE00C242DC /* .gitignore */,
 				50FC32112E9B762600C242DC /* OnDeck */,
 				50FC32232E9B762800C242DC /* OnDeckTests */,
 				50FC322D2E9B762800C242DC /* OnDeckUITests */,
@@ -95,11 +106,15 @@
 		50FC32112E9B762600C242DC /* OnDeck */ = {
 			isa = PBXGroup;
 			children = (
+				50FC32452E9B9B2100C242DC /* Models */,
 				50FC32122E9B762600C242DC /* OnDeckApp.swift */,
 				50FC32142E9B762600C242DC /* ContentView.swift */,
+				50FC323D2E9B981F00C242DC /* OverlayView.swift */,
+				50FC323F2E9B985500C242DC /* MLBStatsService.swift */,
 				50FC32162E9B762700C242DC /* Assets.xcassets */,
 				50FC321B2E9B762700C242DC /* OnDeck.entitlements */,
 				50FC32182E9B762700C242DC /* Preview Content */,
+				50FC32482E9B9C6100C242DC /* ViewModel.swift */,
 			);
 			path = OnDeck;
 			sourceTree = "<group>";
@@ -127,6 +142,14 @@
 				50FC32302E9B762800C242DC /* OnDeckUITestsLaunchTests.swift */,
 			);
 			path = OnDeckUITests;
+			sourceTree = "<group>";
+		};
+		50FC32452E9B9B2100C242DC /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				50FC32462E9B9B3000C242DC /* GameState.swift */,
+			);
+			path = Models;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -234,6 +257,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				50FC321A2E9B762700C242DC /* Preview Assets.xcassets in Resources */,
+				50FC324B2E9C76CE00C242DC /* .gitignore in Resources */,
 				50FC32172E9B762700C242DC /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -259,8 +283,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				50FC323E2E9B981F00C242DC /* OverlayView.swift in Sources */,
 				50FC32152E9B762600C242DC /* ContentView.swift in Sources */,
+				50FC32472E9B9B3000C242DC /* GameState.swift in Sources */,
 				50FC32132E9B762600C242DC /* OnDeckApp.swift in Sources */,
+				50FC32492E9B9C6100C242DC /* ViewModel.swift in Sources */,
+				50FC32402E9B985500C242DC /* MLBStatsService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

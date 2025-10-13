@@ -13,17 +13,33 @@ class MLBStatsService: ObservableObject {
     
     private var overlayWindow: NSWindow?
     private var timer: Timer?
+    private var promptedGames: Set<String> = []
+    private var lastPromptDate = ""
+    
     
     func startTracking(teams: [String]) {
         timer?.invalidate()
         
         timer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
+            self?.resetPromptedGamesIfNewDay()
             self?.checkForLiveGames(trackedTeams: teams)
         }
         timer?.fire()
     }
+        
+    private func resetPromptedGamesIfNewDay() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let today = formatter.string(from: Date())
+        
+        if today != lastPromptDate {
+            promptedGames.removeAll()
+            lastPromptDate = today
+        }
+    }
     
-    func checkForLiveGames(trackedTeams: [String]) {
+    
+    private func checkForLiveGames(trackedTeams: [String]) {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let todayString = formatter.string(from: Date())
@@ -32,7 +48,7 @@ class MLBStatsService: ObservableObject {
         
         print("Fetching MLB schedule: \(url)")
         
-        let task = URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
             guard let self = self else { return }
             
             if let error = error {
@@ -49,9 +65,9 @@ class MLBStatsService: ObservableObject {
             
             do {
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-                guard let dates = json?["dates"] as? [[String: Any]], !dates.isEmpty,
+                guard let dates = json?["dates"] as? [[String: Any]],
                       let gamesArray = dates.first?["games"] as? [[String: Any]] else {
-                    print("No games today, inserting fake game if needed")
+                    print("No games today")
                     self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
                     return
                 }
@@ -67,7 +83,11 @@ class MLBStatsService: ObservableObject {
                        state == "Live",
                        trackedTeams.contains(where: { homeName.contains($0) || awayName.contains($0) }) {
                         
+                        let gameID = "\(homeName)_vs_\(awayName)"
+                        guard !self.promptedGames.contains(gameID) else { return }
+                        
                         DispatchQueue.main.async {
+                            self.promptedGames.insert(gameID)
                             self.currentGame = GameState(
                                 home: homeName,
                                 away: awayName,
@@ -103,9 +123,14 @@ class MLBStatsService: ObservableObject {
         task.resume()
     }
     
+    
     private func injectFakeGameIfNeeded(trackedTeams: [String]) {
         let fakeTeams = ["Yankees", "Blue Jays"]
         guard trackedTeams.contains(where: { fakeTeams.contains($0) }) else { return }
+        
+        let gameID = "Blue Jays_vs_Yankees"
+        guard !promptedGames.contains(gameID) else { return }
+        promptedGames.insert(gameID)
         
         DispatchQueue.main.async {
             self.currentGame = GameState(
@@ -127,26 +152,26 @@ class MLBStatsService: ObservableObject {
         }
     }
     
+    
     func showOverlay() {
         guard overlayWindow == nil else { return }
-
+        
         let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let width: CGFloat = 260
         let height: CGFloat = 120
         let x = screenFrame.maxX - width - 20
         let y = screenFrame.maxY - height - 40
-
+        
         let overlay = NSWindow(
             contentRect: NSRect(x: x, y: y, width: width, height: height),
             styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
-
+        
         overlay.isOpaque = false
         overlay.backgroundColor = .clear
         overlay.level = .floating
-        
         overlay.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle]
         
         overlay.contentView = NSHostingView(
@@ -155,16 +180,17 @@ class MLBStatsService: ObservableObject {
                 closeAction: { [weak self] in self?.closeOverlay() }
             )
         )
-
+        
         overlay.makeKeyAndOrderFront(nil)
         overlayWindow = overlay
     }
-
-        func closeOverlay() {
+    
+    func closeOverlay() {
         overlayWindow?.close()
         overlayWindow = nil
     }
-        func promptUserBeforeOverlay(game: GameState) {
+        
+    func promptUserBeforeOverlay(game: GameState) {
         let alert = NSAlert()
         alert.messageText = "\(game.home) vs \(game.away) is live now!"
         alert.informativeText = "Do you want to watch the live scorecard?"
@@ -178,3 +204,4 @@ class MLBStatsService: ObservableObject {
         }
     }
 }
+

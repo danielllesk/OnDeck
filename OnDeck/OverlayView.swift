@@ -7,115 +7,111 @@
 import SwiftUI
 
 struct OverlayView: View {
-    var game: GameState
-    var closeAction: () -> Void
+    let game: GameState
+    let closeAction: () -> Void
 
     var body: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        HStack {
-                            Text(game.away)
-                                .fontWeight(.bold)
-                            Spacer()
-                            Text("\(game.awayScore)")
-                                .fontWeight(.bold)
-                        }
-                        HStack {
-                            Text(game.home)
-                                .fontWeight(.bold)
-                            Spacer()
-                            Text("\(game.homeScore)")
-                                .fontWeight(.bold)
-                        }
-                    }
-                    .frame(maxWidth: .infinity)
-                    
-                    VStack(spacing: 2) {
-                        Image(systemName: "chevron.up")
-                            .opacity(game.isTopInning ? 1 : 0.2)
-                            .foregroundColor(.yellow)
-                        Text("\(game.inning)")
-                            .font(.headline)
-                        Image(systemName: "chevron.down")
-                            .opacity(game.isTopInning ? 0.2 : 1)
-                            .foregroundColor(.yellow)
-                    }
+        VStack(alignment: .leading, spacing: 6) {
+
+            HStack(spacing: 6) {
+                TeamLogoView(teamName: game.away)
+                Text(game.away)
+                    .font(.headline)
+                Text("vs")
+                    .foregroundColor(.secondary)
+                Text(game.home)
+                    .font(.headline)
+                TeamLogoView(teamName: game.home)
+
+                Spacer()
+
+                Button(action: closeAction) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.secondary)
                 }
-
-                Divider().background(Color.gray)
-
-                // BASES logic EDIT BRO
-                HStack(spacing: 10) {
-                    BaseDiamond(
-                        first: game.bases[0],
-                        second: game.bases[1],
-                        third: game.bases[2]
-                    )
-                    Spacer()
-                    VStack(alignment: .trailing, spacing: 3) {
-                        Text("P: \(game.pitcher)")
-                        Text("PC: \(game.pitchCount)")
-                        Text("Batter: \(game.batter)")
-                        Text("\(game.batterBalls)-\(game.batterStrikes)")
-                        Text(game.batterRecord)
-                    }
-                    .font(.system(size: 10))
-                    .foregroundColor(.white)
-                }
-
+                .buttonStyle(.plain)
             }
-            .padding(10)
-            .frame(width: 260)
-            .background(
-                LinearGradient(colors: [.black, .gray.opacity(0.8)], startPoint: .topLeading, endPoint: .bottomTrailing)
-            )
-            .cornerRadius(14)
-            .shadow(radius: 6)
 
-            Button(action: closeAction) {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundColor(.red)
-                    .font(.title3)
-                    .padding(6)
+            Divider()
+
+            HStack {
+                Text("Score: \(game.homeScore) - \(game.awayScore)")
+                    .font(.subheadline)
+                Spacer()
+                Text("Inning: \(game.inning) \(game.isTopInning ? "▲" : "▼")")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+
+            HStack(alignment: .center, spacing: 16) {
+
+                VStack(alignment: .leading, spacing: 2) {
+                    let battingAverage = Double.random(in: 0.200...0.350)
+                    Text("Batter: \(String(game.batter)) (\(game.batterRecord)), \(String(format: "%.3f", battingAverage))")
+                    Text("Pitcher: \(game.pitcher)")
+                    Text("Pitch Count: \(game.pitchCount)")
+                    Text("Count: \(game.batterBalls)-\(game.batterStrikes)")
+                }
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+                BasesView(bases: game.bases)
             }
         }
+        .padding(10)
+        .frame(width: 240)
+        .background(
+            RoundedRectangle(cornerRadius: 14)
+                .fill(Color(NSColor.windowBackgroundColor))
+                .shadow(radius: 6)
+        )
     }
 }
 
-struct BaseDiamond: View {
-    var first: Bool
-    var second: Bool
-    var third: Bool
+// MARK: - Bases View
+struct BasesView: View {
+    let bases: [Bool]
 
     var body: some View {
         ZStack {
-            // diamond drawing
-            Rectangle()
-                .fill(Color.clear)
-                .frame(width: 40, height: 40)
-            ZStack {
-                Base(filled: second)
-                    .offset(y: -15)
-                Base(filled: third)
-                    .offset(x: -15)
-                Base(filled: first)
-                    .offset(x: 15)
-                Base(filled: false)
-            }
+            Base(isOccupied: bases.count > 1 && bases[1])
+                .offset(y: -12)
+            Base(isOccupied: bases.count > 0 && bases[0])
+                .offset(x: 12)
+            Base(isOccupied: bases.count > 2 && bases[2])
+                .offset(x: -12)
+            Base(isOccupied: false)
+                .offset(y: 12)
         }
+        .frame(width: 50, height: 50)
     }
 }
 
 struct Base: View {
-    var filled: Bool
-
+    let isOccupied: Bool
     var body: some View {
         Rectangle()
-            .fill(filled ? Color.yellow : Color.white)
-            .frame(width: 10, height: 10)
+            .fill(isOccupied ? Color.green : Color.gray.opacity(0.3))
+            .frame(width: 12, height: 12)
             .rotationEffect(.degrees(45))
-            .shadow(radius: 1)
+    }
+}
+
+struct TeamLogoView: View {
+    let teamName: String
+
+    var body: some View {
+        if let logoURL = logoURL(for: teamName), let url = URL(string: logoURL) {
+            AsyncImage(url: url) { img in
+                img.resizable()
+                    .scaledToFit()
+                    .frame(width: 22, height: 22)
+                    .clipShape(Circle())
+            } placeholder: {
+                Circle()
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 22, height: 22)
+            }
+        }
     }
 }

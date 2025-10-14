@@ -125,16 +125,16 @@ class MLBStatsService: ObservableObject {
     
     
     private func injectFakeGameIfNeeded(trackedTeams: [String]) {
-        let fakeTeams = ["Yankees", "Blue Jays"]
+        let fakeTeams = ["Yankees", "Dodgers"]
         guard trackedTeams.contains(where: { fakeTeams.contains($0) }) else { return }
         
-        let gameID = "Blue Jays_vs_Yankees"
+        let gameID = "Dodgers_vs_Yankees"
         guard !promptedGames.contains(gameID) else { return }
         promptedGames.insert(gameID)
         
         DispatchQueue.main.async {
             self.currentGame = GameState(
-                home: "Blue Jays",
+                home: "Dodgers",
                 away: "Yankees",
                 homeScore: 4,
                 awayScore: 3,
@@ -143,7 +143,7 @@ class MLBStatsService: ObservableObject {
                 bases: [true, false, true],
                 pitcher: "Gerrit Cole",
                 pitchCount: 85,
-                batter: "Vladimir Guerrero Jr.",
+                batter: "Shohei Ohtani",
                 batterBalls: 1,
                 batterStrikes: 2,
                 batterRecord: "2-4"
@@ -200,6 +200,11 @@ class MLBStatsService: ObservableObject {
         
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
+            showOverlay()
+        }
+    }
+    func showOverlayIfNotVisible() {
+        if overlayWindow == nil, let _ = currentGame {
             showOverlay()
         }
     }

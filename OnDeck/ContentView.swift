@@ -11,13 +11,12 @@ struct ContentView: View {
     
     @AppStorage("trackedTeams") private var trackedTeamsData: String = "[]"
     
-    @State private var selectedTeams: Set<String> = []
+    @State private var selectedTeams: Set<MLBTeam> = []
+    @State private var availableTeams: [MLBTeam] = allTeams
     
-    @State private var availableTeams = ["Yankees", "Blue Jays", "Dodgers", "Red Sox", "Giants", "Cubs"]
-    
-    private var trackedTeamsArray: [String] {
+    private var trackedTeamsArray: [MLBTeam] {
         if let data = trackedTeamsData.data(using: .utf8),
-           let array = try? JSONDecoder().decode([String].self, from: data) {
+           let array = try? JSONDecoder().decode([MLBTeam].self, from: data) {
             return array
         }
         return []
@@ -28,24 +27,50 @@ struct ContentView: View {
             Text("Select Teams to Track")
                 .font(.headline)
                 .padding(.bottom, 5)
+            
+            List {
+                ForEach(availableTeams) { team in
+                    HStack(spacing: 10) {
+                        AsyncImage(url: URL(string: team.logoURL)) { img in
+                            img.resizable()
+                                .scaledToFit()
+                                .frame(width: 24, height: 24)
+                                .clipShape(Circle())
+                        } placeholder: {
+                            Circle()
+                                .fill(Color.gray.opacity(0.2))
+                                .frame(width: 24, height: 24)
+                        }
 
-            List(selection: $selectedTeams) {
-                ForEach(availableTeams, id: \.self) { team in
-                    Text(team)
-                        .tag(team)
+                        Text(team.name)
+                            .font(.body)
+
+                        Spacer()
+
+                        if selectedTeams.contains(team) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        if selectedTeams.contains(team) {
+                            selectedTeams.remove(team)
+                        } else {
+                            selectedTeams.insert(team)
+                        }
+                    }
                 }
             }
-            .frame(width: 260, height: 200)
-            .listStyle(SidebarListStyle())
+            .frame(width: 260, height: 300)
+            .listStyle(.plain)
             .cornerRadius(8)
-            .border(Color.gray.opacity(0.3))
 
             Button("💾 Save & Start Tracking") {
                 if let data = try? JSONEncoder().encode(Array(selectedTeams)) {
                     trackedTeamsData = String(data: data, encoding: .utf8) ?? "[]"
                 }
-                
-                mlbService.startTracking(teams: Array(selectedTeams))
+                mlbService.startTracking(teams: Array(selectedTeams.map { $0.name }))
             }
             .buttonStyle(.borderedProminent)
             .padding(.vertical, 10)
@@ -53,21 +78,61 @@ struct ContentView: View {
             Divider()
 
             if let game = mlbService.currentGame {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text("📺 Game Live!")
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.green)
+                Button(action: {
+                    mlbService.showOverlayIfNotVisible()
+                }) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 5) {
+                            if let homeLogo = logoURL(for: game.home),
+                               let homeURL = URL(string: homeLogo) {
+                                AsyncImage(url: homeURL) { img in
+                                    img.resizable()
+                                        .scaledToFit()
+                                        .frame(width: 20, height: 20)
+                                } placeholder: {
+                                    Rectangle()
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(width: 20, height: 20)
+                                }
+                            }
 
-                    Text("\(game.home) vs \(game.away)")
-                        .font(.subheadline)
+                            Text("\(game.home) vs \(game.away)")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
 
-                    Text("Score: \(game.homeScore) - \(game.awayScore)")
-                        .foregroundColor(.secondary)
+                            if let awayLogo = logoURL(for: game.away),
+                               let awayURL = URL(string: awayLogo) {
+                                AsyncImage(url: awayURL) { img in
+                                    img.resizable()
+                                        .scaledToFit()
+                                        .frame(width: 20, height: 20)
+                                } placeholder: {
+                                    Rectangle()
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(width: 20, height: 20)
+                                }
+                            }
+                        }
 
-                    Text("Inning: \(game.inning) \(game.isTopInning ? "▲" : "▼")")
-                        .foregroundColor(.secondary)
+                        Text("Score: \(game.homeScore) - \(game.awayScore)")
+                            .foregroundColor(.secondary)
+
+                        Text("Inning: \(game.inning) \(game.isTopInning ? "▲" : "▼")")
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.gray.opacity(0.1))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.gray.opacity(0.2))
+                    )
                 }
+                .buttonStyle(.plain)
+                .contentShape(Rectangle())
                 .padding(.top, 10)
             } else {
                 Text("No live games right now.")
@@ -76,10 +141,9 @@ struct ContentView: View {
             }
         }
         .padding(20)
-        .frame(width: 300, height: 400)
+        .frame(width: 300, height: 450)
         .onAppear {
             selectedTeams = Set(trackedTeamsArray)
         }
     }
 }
-

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		50F6423E2E9DA19000570BE3 /* MLBTeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F6423D2E9DA19000570BE3 /* MLBTeams.swift */; };
+		50F642422E9F00F300570BE3 /* SVGView in Frameworks */ = {isa = PBXBuildFile; productRef = 50F642412E9F00F300570BE3 /* SVGView */; };
 		50FC32132E9B762600C242DC /* OnDeckApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC32122E9B762600C242DC /* OnDeckApp.swift */; };
 		50FC32152E9B762600C242DC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC32142E9B762600C242DC /* ContentView.swift */; };
 		50FC32172E9B762700C242DC /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 50FC32162E9B762700C242DC /* Assets.xcassets */; };
@@ -65,6 +66,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				50F642422E9F00F300570BE3 /* SVGView in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -173,6 +175,9 @@
 			dependencies = (
 			);
 			name = OnDeck;
+			packageProductDependencies = (
+				50F642412E9F00F300570BE3 /* SVGView */,
+			);
 			productName = OnDeck;
 			productReference = 50FC320F2E9B762600C242DC /* OnDeck.app */;
 			productType = "com.apple.product-type.application";
@@ -245,6 +250,9 @@
 				Base,
 			);
 			mainGroup = 50FC32062E9B762600C242DC;
+			packageReferences = (
+				50F642402E9F00F300570BE3 /* XCRemoteSwiftPackageReference "SVGView" */,
+			);
 			productRefGroup = 50FC32102E9B762600C242DC /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -604,6 +612,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		50F642402E9F00F300570BE3 /* XCRemoteSwiftPackageReference "SVGView" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/exyte/SVGView";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		50F642412E9F00F300570BE3 /* SVGView */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 50F642402E9F00F300570BE3 /* XCRemoteSwiftPackageReference "SVGView" */;
+			productName = SVGView;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 50FC32072E9B762600C242DC /* Project object */;
 }

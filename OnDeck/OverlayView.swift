@@ -177,35 +177,20 @@ struct Base: View {
             )
     }
 }
+import SVGView
 
 struct TeamLogoView: View {
     let teamName: String
-
-    var body: some View {
-        AsyncImage(url: URL(string: logoURL(for: teamName))) { phase in
-            switch phase {
-            case .success(let image):
-                image
-                    .resizable()
-                    .scaledToFit()
-            case .failure(_):
-                placeholderView
-            case .empty:
-                ProgressView()
-                    .scaleEffect(0.5)
-            @unknown default:
-                placeholderView
-            }
-        }
-    }
     
-    private var placeholderView: some View {
-        Circle()
-            .fill(Color.gray.opacity(0.3))
-            .overlay(
-                Image(systemName: "baseball.fill")
-                    .foregroundColor(.white)
-                    .font(.system(size: 10))
-            )
+    var body: some View {
+        if let url = URL(string: logoURL(for: teamName).replacingOccurrences(of: ".png", with: ".svg")) {
+            SVGView(contentsOf: url)
+                .frame(width: 30, height: 30)
+                .clipShape(Circle())
+        } else {
+            Circle()
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 30, height: 30)
+        }
     }
 }

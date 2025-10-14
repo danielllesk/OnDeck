@@ -17,7 +17,6 @@ class MLBStatsService: ObservableObject {
     private var promptedGames: Set<String> = []
     private var lastPromptDate = ""
     
-    
     func startTracking(teams: [String]) {
         timer?.invalidate()
         
@@ -39,7 +38,6 @@ class MLBStatsService: ObservableObject {
         }
     }
     
-    
     private func checkForLiveGames(trackedTeams: [String]) {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
@@ -51,8 +49,9 @@ class MLBStatsService: ObservableObject {
             guard let self = self else { return }
             
             if let error = error {
-                print("Network error: \(error.localizedDescription)")
-                self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                DispatchQueue.main.async {
+                    self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                }
                 return
             }
             
@@ -148,13 +147,12 @@ class MLBStatsService: ObservableObject {
                         !liveGameIDs.contains(game.id)
                     }
                     
-                    if self.currentGames.isEmpty {
-                        self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
-                    }
+                    self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
                 }
             } catch {
-                print("JSON parsing error: \(error)")
-                self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                DispatchQueue.main.async {
+                    self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                }
             }
         }
         
@@ -239,7 +237,6 @@ class MLBStatsService: ObservableObject {
         }
     }
     
-    
     private func injectFakeGameIfNeeded(trackedTeams: [String]) {
         #if DEBUG
         let fakeGames = [
@@ -284,18 +281,17 @@ class MLBStatsService: ObservableObject {
         #endif
     }
     
-    
     func showOverlay(for game: GameState) {
-        if overlayWindows[game.id] != nil {
-            overlayWindows[game.id]?.makeKeyAndOrderFront(nil)
+        if let existingWindow = overlayWindows[game.id] {
+            existingWindow.makeKeyAndOrderFront(nil)
             return
         }
         
         let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let width: CGFloat = 380
-        let height: CGFloat = 200
+        let width: CGFloat = 340
+        let height: CGFloat = 220
         let x = screenFrame.maxX - width - 20
-        let y = screenFrame.maxY - height - 40 - (CGFloat(overlayWindows.count) * 220)
+        let y = screenFrame.maxY - height - 60 - (CGFloat(overlayWindows.count) * 240)
         
         let overlay = NSWindow(
             contentRect: NSRect(x: x, y: y, width: width, height: height),
@@ -305,20 +301,24 @@ class MLBStatsService: ObservableObject {
         )
         
         overlay.title = "\(game.away) @ \(game.home)"
-        overlay.titlebarAppearsTransparent = true
-        overlay.titleVisibility = .hidden
         overlay.isMovableByWindowBackground = true
-        overlay.isOpaque = false
-        overlay.backgroundColor = .clear
         overlay.level = .floating
         overlay.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         
-        overlay.contentView = NSHostingView(
+        let hostingView = NSHostingView(
             rootView: OverlayView(
                 game: game,
-                closeAction: { [weak self] in self?.closeOverlay(for: game.id) }
+                closeAction: { [weak self, weak overlay] in
+                    overlay?.close()
+                    self?.overlayWindows.removeValue(forKey: game.id)
+                    self?.detailTimers[game.id]?.invalidate()
+                    self?.detailTimers.removeValue(forKey: game.id)
+                }
             )
         )
+        
+        overlay.contentView = hostingView
+        overlay.delegate = OverlayWindowDelegate(service: self, gameID: game.id)
         
         overlay.makeKeyAndOrderFront(nil)
         overlayWindows[game.id] = overlay
@@ -330,7 +330,7 @@ class MLBStatsService: ObservableObject {
         detailTimers[gameID]?.invalidate()
         detailTimers.removeValue(forKey: gameID)
     }
-        
+    
     func promptUserBeforeOverlay(game: GameState) {
         let alert = NSAlert()
         alert.messageText = "\(game.away) @ \(game.home) is LIVE!"
@@ -346,3 +346,16 @@ class MLBStatsService: ObservableObject {
     }
 }
 
+class OverlayWindowDelegate: NSObject, NSWindowDelegate {
+    let service: MLBStatsService
+    let gameID: String
+    
+    init(service: MLBStatsService, gameID: String) {
+        self.service = service
+        self.gameID = gameID
+    }
+    
+    func windowWillClose(_ notification: Notification) {
+        service.closeOverlay(for: gameID)
+    }
+}

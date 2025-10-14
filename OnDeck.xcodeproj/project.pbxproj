@@ -41,6 +41,7 @@
 
 /* Begin PBXFileReference section */
 		50F6423D2E9DA19000570BE3 /* MLBTeams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBTeams.swift; sourceTree = "<group>"; };
+		50F6423F2E9EF15900570BE3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		50FC320F2E9B762600C242DC /* OnDeck.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OnDeck.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		50FC32122E9B762600C242DC /* OnDeckApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeckApp.swift; sourceTree = "<group>"; };
 		50FC32142E9B762600C242DC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -108,6 +109,7 @@
 		50FC32112E9B762600C242DC /* OnDeck */ = {
 			isa = PBXGroup;
 			children = (
+				50F6423F2E9EF15900570BE3 /* Info.plist */,
 				50FC32452E9B9B2100C242DC /* Models */,
 				50FC32122E9B762600C242DC /* OnDeckApp.swift */,
 				50FC32142E9B762600C242DC /* ContentView.swift */,
@@ -454,6 +456,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"OnDeck/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OnDeck/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -479,6 +482,7 @@
 				DEVELOPMENT_ASSET_PATHS = "\"OnDeck/Preview Content\"";
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = OnDeck/Info.plist;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

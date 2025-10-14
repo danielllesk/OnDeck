@@ -23,125 +23,156 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 15) {
+        VStack(alignment: .leading, spacing: 20) {
             Text("Select Teams to Track")
-                .font(.headline)
+                .font(.title2)
+                .fontWeight(.bold)
                 .padding(.bottom, 5)
             
-            List {
-                ForEach(availableTeams) { team in
-                    HStack(spacing: 10) {
-                        AsyncImage(url: URL(string: team.logoURL)) { img in
-                            img.resizable()
-                                .scaledToFit()
-                                .frame(width: 24, height: 24)
-                                .clipShape(Circle())
-                        } placeholder: {
-                            Circle()
-                                .fill(Color.gray.opacity(0.2))
-                                .frame(width: 24, height: 24)
+            ScrollView {
+                VStack(spacing: 0) {
+                    ForEach(availableTeams) { team in
+                        HStack(spacing: 12) {
+                            AsyncImage(url: URL(string: team.logoURL)) { phase in
+                                switch phase {
+                                case .success(let image):
+                                    image
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: 32, height: 32)
+                                case .failure(_), .empty:
+                                    Circle()
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(width: 32, height: 32)
+                                @unknown default:
+                                    Circle()
+                                        .fill(Color.gray.opacity(0.2))
+                                        .frame(width: 32, height: 32)
+                                }
+                            }
+
+                            Text(team.name)
+                                .font(.body)
+
+                            Spacer()
+
+                            if selectedTeams.contains(team) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.title3)
+                            }
                         }
-
-                        Text(team.name)
-                            .font(.body)
-
-                        Spacer()
-
-                        if selectedTeams.contains(team) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
+                        .padding(.vertical, 12)
+                        .padding(.horizontal, 16)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            if selectedTeams.contains(team) {
+                                selectedTeams.remove(team)
+                            } else {
+                                selectedTeams.insert(team)
+                            }
                         }
-                    }
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        if selectedTeams.contains(team) {
-                            selectedTeams.remove(team)
-                        } else {
-                            selectedTeams.insert(team)
+                        
+                        if team.id != availableTeams.last?.id {
+                            Divider()
+                                .padding(.leading, 60)
                         }
                     }
                 }
             }
-            .frame(width: 260, height: 300)
-            .listStyle(.plain)
-            .cornerRadius(8)
+            .frame(maxWidth: .infinity, maxHeight: 400)
+            .background(Color(NSColor.controlBackgroundColor))
+            .cornerRadius(10)
 
-            Button("💾 Save & Start Tracking") {
+            Button(action: {
                 if let data = try? JSONEncoder().encode(Array(selectedTeams)) {
                     trackedTeamsData = String(data: data, encoding: .utf8) ?? "[]"
                 }
                 mlbService.startTracking(teams: Array(selectedTeams.map { $0.name }))
+            }) {
+                Label("Save & Start Tracking", systemImage: "baseball.fill")
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
             }
             .buttonStyle(.borderedProminent)
-            .padding(.vertical, 10)
+            .controlSize(.large)
 
             Divider()
+                .padding(.vertical, 5)
 
-            if let game = mlbService.currentGame {
-                Button(action: {
-                    mlbService.showOverlayIfNotVisible()
-                }) {
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack(spacing: 5) {
-                            if let homeLogo = logoURL(for: game.home),
-                               let homeURL = URL(string: homeLogo) {
-                                AsyncImage(url: homeURL) { img in
-                                    img.resizable()
-                                        .scaledToFit()
-                                        .frame(width: 20, height: 20)
-                                } placeholder: {
-                                    Rectangle()
-                                        .fill(Color.gray.opacity(0.2))
-                                        .frame(width: 20, height: 20)
-                                }
-                            }
-
-                            Text("\(game.home) vs \(game.away)")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-
-                            if let awayLogo = logoURL(for: game.away),
-                               let awayURL = URL(string: awayLogo) {
-                                AsyncImage(url: awayURL) { img in
-                                    img.resizable()
-                                        .scaledToFit()
-                                        .frame(width: 20, height: 20)
-                                } placeholder: {
-                                    Rectangle()
-                                        .fill(Color.gray.opacity(0.2))
-                                        .frame(width: 20, height: 20)
-                                }
-                            }
-                        }
-
-                        Text("Score: \(game.homeScore) - \(game.awayScore)")
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Live Games (\(mlbService.currentGames.count))")
+                    .font(.headline)
+                
+                if mlbService.currentGames.isEmpty {
+                    HStack {
+                        Image(systemName: "moon.stars.fill")
                             .foregroundColor(.secondary)
-
-                        Text("Inning: \(game.inning) \(game.isTopInning ? "▲" : "▼")")
+                        Text("No live games right now.")
                             .foregroundColor(.secondary)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.gray.opacity(0.1))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.gray.opacity(0.2))
-                    )
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 20)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 10) {
+                            ForEach(mlbService.currentGames, id: \.id) { game in
+                                Button(action: {
+                                    mlbService.showOverlay(for: game)
+                                }) {
+                                    VStack(alignment: .leading, spacing: 10) {
+                                        HStack(spacing: 12) {
+                                            TeamLogoView(teamName: game.away)
+                                                .frame(width: 32, height: 32)
+
+                                            Text(game.away)
+                                                .font(.body)
+                                                .fontWeight(.semibold)
+                                                .lineLimit(1)
+
+                                            Text("@")
+                                                .foregroundColor(.secondary)
+                                                .font(.subheadline)
+
+                                            Text(game.home)
+                                                .font(.body)
+                                                .fontWeight(.semibold)
+                                                .lineLimit(1)
+
+                                            TeamLogoView(teamName: game.home)
+                                                .frame(width: 32, height: 32)
+                                        }
+
+                                        HStack(spacing: 20) {
+                                            Label("\(game.awayScore) - \(game.homeScore)", systemImage: "sportscourt.fill")
+                                                .font(.subheadline)
+                                            
+                                            Label("Inning \(game.inning) \(game.isTopInning ? "▲" : "▼")", systemImage: "clock.fill")
+                                                .font(.subheadline)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(16)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .fill(Color.accentColor.opacity(0.1))
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 10)
+                                            .stroke(Color.accentColor.opacity(0.3), lineWidth: 1)
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                    .frame(maxHeight: 150)
                 }
-                .buttonStyle(.plain)
-                .contentShape(Rectangle())
-                .padding(.top, 10)
-            } else {
-                Text("No live games right now.")
-                    .foregroundColor(.gray)
-                    .padding(.top, 10)
             }
         }
-        .padding(20)
-        .frame(width: 300, height: 450)
+        .padding(24)
+        .frame(width: 450, height: 700)
         .onAppear {
             selectedTeams = Set(trackedTeamsArray)
         }

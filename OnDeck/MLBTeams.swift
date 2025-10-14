@@ -46,8 +46,17 @@ let allTeams: [MLBTeam] = [
     MLBTeam(id: "MIL", name: "Brewers", logoURL: "https://a.espncdn.com/i/teamlogos/mlb/500/mil.png")
 ]
 
-func logoURL(for team: String) -> String? {
-    allTeams.first(where: { team.localizedCaseInsensitiveContains($0.name) })?.logoURL
+func logoURL(for team: String) -> String {
+    if let exact = allTeams.first(where: { $0.name.lowercased() == team.lowercased() }) {
+        return exact.logoURL
+    }
+    if let partial = allTeams.first(where: { team.lowercased().contains($0.name.lowercased()) }) {
+        return partial.logoURL
+    }
+    let formatted = team
+        .lowercased()
+        .replacingOccurrences(of: " ", with: "_")
+        .replacingOccurrences(of: ".", with: "")
+    return "https://a.espncdn.com/i/teamlogos/mlb/500/\(formatted).png"
 }
-
 

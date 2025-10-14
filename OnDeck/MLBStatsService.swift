@@ -3,16 +3,17 @@
 //  OnDeck
 //
 //  Created by Danny Eskandar on 2025-10-12.
-//
+//    
 import Foundation
 import AppKit
 import SwiftUI
 
 class MLBStatsService: ObservableObject {
-    @Published var currentGame: GameState?
+    @Published var currentGames: [GameState] = []
     
-    private var overlayWindow: NSWindow?
+    private var overlayWindows: [String: NSWindow] = [:]
     private var timer: Timer?
+    private var detailTimers: [String: Timer] = [:]
     private var promptedGames: Set<String> = []
     private var lastPromptDate = ""
     
@@ -20,7 +21,7 @@ class MLBStatsService: ObservableObject {
     func startTracking(teams: [String]) {
         timer?.invalidate()
         
-        timer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
             self?.resetPromptedGamesIfNewDay()
             self?.checkForLiveGames(trackedTeams: teams)
         }
@@ -44,21 +45,18 @@ class MLBStatsService: ObservableObject {
         formatter.dateFormat = "yyyy-MM-dd"
         let todayString = formatter.string(from: Date())
         
-        guard let url = URL(string: "https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=\(todayString)") else { return }
+        guard let url = URL(string: "https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=\(todayString)&hydrate=linescore") else { return }
         
-        print("Fetching MLB schedule: \(url)")
-        
-        let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
             guard let self = self else { return }
             
             if let error = error {
-                print("Network error fetching MLB schedule: \(error.localizedDescription)")
+                print("Network error: \(error.localizedDescription)")
                 self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
                 return
             }
             
             guard let data = data else {
-                print("No data received")
                 self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
                 return
             }
@@ -66,56 +64,96 @@ class MLBStatsService: ObservableObject {
             do {
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
                 guard let dates = json?["dates"] as? [[String: Any]],
+                      !dates.isEmpty,
                       let gamesArray = dates.first?["games"] as? [[String: Any]] else {
-                    print("No games today")
                     self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
                     return
                 }
                 
                 for game in gamesArray {
-                    if let teams = game["teams"] as? [String: Any],
-                       let home = (teams["home"] as? [String: Any])?["team"] as? [String: Any],
-                       let away = (teams["away"] as? [String: Any])?["team"] as? [String: Any],
-                       let homeName = home["teamName"] as? String,
-                       let awayName = away["teamName"] as? String,
-                       let status = game["status"] as? [String: Any],
-                       let state = status["abstractGameState"] as? String,
-                       state == "Live",
-                       trackedTeams.contains(where: { homeName.contains($0) || awayName.contains($0) }) {
+                    guard let teams = game["teams"] as? [String: Any],
+                          let home = (teams["home"] as? [String: Any])?["team"] as? [String: Any],
+                          let away = (teams["away"] as? [String: Any])?["team"] as? [String: Any],
+                          let homeName = home["name"] as? String,
+                          let awayName = away["name"] as? String,
+                          let status = game["status"] as? [String: Any],
+                          let detailedState = status["detailedState"] as? String else {
+                        continue
+                    }
+                    
+                    let isLive = detailedState.contains("In Progress") ||
+                                 detailedState.contains("Delayed") ||
+                                 detailedState.contains("Warmup")
+                    
+                    if isLive, trackedTeams.contains(where: {
+                        homeName.lowercased().contains($0.lowercased()) ||
+                        awayName.lowercased().contains($0.lowercased())
+                    }) {
+                        let gameID = "\(awayName)_vs_\(homeName)"
                         
-                        let gameID = "\(homeName)_vs_\(awayName)"
-                        guard !self.promptedGames.contains(gameID) else { return }
+                        let linescore = game["linescore"] as? [String: Any]
+                        let homeScore = (teams["home"] as? [String: Any])?["score"] as? Int ?? 0
+                        let awayScore = (teams["away"] as? [String: Any])?["score"] as? Int ?? 0
+                        let inning = linescore?["currentInning"] as? Int ?? 1
+                        let inningState = linescore?["inningState"] as? String ?? "Top"
+                        let isTop = inningState.lowercased().contains("top")
+                        
+                        let newGame = GameState(
+                            id: gameID,
+                            home: homeName,
+                            away: awayName,
+                            homeScore: homeScore,
+                            awayScore: awayScore,
+                            inning: inning,
+                            isTopInning: isTop,
+                            pitcher: "Loading...",
+                            pitchCount: 0,
+                            batterBalls: 0,
+                            batterStrikes: 0,
+                            bases: [false, false, false],
+                            batter: nil
+                        )
                         
                         DispatchQueue.main.async {
-                            self.promptedGames.insert(gameID)
-                            self.currentGame = GameState(
-                                home: homeName,
-                                away: awayName,
-                                homeScore: 0,
-                                awayScore: 0,
-                                inning: 1,
-                                isTopInning: true,
-                                bases: [false, false, false],
-                                pitcher: "TBD",
-                                pitchCount: 0,
-                                batter: "TBD",
-                                batterBalls: 0,
-                                batterStrikes: 0,
-                                batterRecord: "0-0"
-                            )
-                            self.promptUserBeforeOverlay(game: self.currentGame!)
+                            if let index = self.currentGames.firstIndex(where: { $0.id == gameID }) {
+                                self.currentGames[index] = newGame
+                            } else {
+                                self.currentGames.append(newGame)
+                                if !self.promptedGames.contains(gameID) {
+                                    self.promptedGames.insert(gameID)
+                                    self.promptUserBeforeOverlay(game: newGame)
+                                }
+                            }
+                            
+                            if let gamePk = game["gamePk"] as? Int {
+                                self.fetchGameDetails(gamePk: gamePk, gameID: gameID)
+                            }
                         }
-                        return
                     }
                 }
                 
                 DispatchQueue.main.async {
-                    self.currentGame = nil
-                    self.closeOverlay()
-                    self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                    let liveGameIDs = gamesArray.compactMap { game -> String? in
+                        guard let teams = game["teams"] as? [String: Any],
+                              let home = (teams["home"] as? [String: Any])?["team"] as? [String: Any],
+                              let away = (teams["away"] as? [String: Any])?["team"] as? [String: Any],
+                              let homeName = home["name"] as? String,
+                              let awayName = away["name"] as? String else {
+                            return nil
+                        }
+                        return "\(awayName)_vs_\(homeName)"
+                    }
+                    
+                    self.currentGames.removeAll { game in
+                        !liveGameIDs.contains(game.id)
+                    }
+                    
+                    if self.currentGames.isEmpty {
+                        self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                    }
                 }
             } catch {
-                print("Error parsing JSON: \(error)")
+                print("JSON parsing error: \(error)")
                 self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
             }
         }
@@ -123,76 +161,179 @@ class MLBStatsService: ObservableObject {
         task.resume()
     }
     
+    private func updateGameDetails(game: [String: Any], homeName: String, awayName: String) {
+        guard let gamePk = game["gamePk"] as? Int else { return }
+        let gameID = "\(awayName)_vs_\(homeName)"
+        fetchGameDetails(gamePk: gamePk, gameID: gameID)
+    }
     
-    private func injectFakeGameIfNeeded(trackedTeams: [String]) {
-        let fakeTeams = ["Yankees", "Dodgers"]
-        guard trackedTeams.contains(where: { fakeTeams.contains($0) }) else { return }
+    private func fetchGameDetails(gamePk: Int, gameID: String) {
+        guard let url = URL(string: "https://statsapi.mlb.com/api/v1.1/game/\(gamePk)/feed/live") else { return }
         
-        let gameID = "Dodgers_vs_Yankees"
-        guard !promptedGames.contains(gameID) else { return }
-        promptedGames.insert(gameID)
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            guard let self = self, let data = data, error == nil else { return }
+            
+            do {
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                guard let liveData = json?["liveData"] as? [String: Any],
+                      let plays = liveData["plays"] as? [String: Any],
+                      let currentPlay = plays["currentPlay"] as? [String: Any] else { return }
+                
+                let matchup = currentPlay["matchup"] as? [String: Any]
+                let pitcherData = matchup?["pitcher"] as? [String: Any]
+                let pitcherName = pitcherData?["fullName"] as? String ?? "Unknown"
+                
+                let batterData = matchup?["batter"] as? [String: Any]
+                let batterName = batterData?["fullName"] as? String ?? "Unknown"
+                
+                let batterStats = matchup?["batterStats"] as? [String: Any]
+                let avg = batterStats?["avg"] as? String ?? ".000"
+                let hits = batterStats?["hits"] as? Int ?? 0
+                let atBats = batterStats?["atBats"] as? Int ?? 0
+                
+                let count = currentPlay["count"] as? [String: Any]
+                let balls = count?["balls"] as? Int ?? 0
+                let strikes = count?["strikes"] as? Int ?? 0
+                
+                let runners = currentPlay["runners"] as? [[String: Any]] ?? []
+                var bases = [false, false, false]
+                for runner in runners {
+                    if let movement = runner["movement"] as? [String: Any],
+                       let end = movement["end"] as? String {
+                        if end == "1B" { bases[0] = true }
+                        if end == "2B" { bases[1] = true }
+                        if end == "3B" { bases[2] = true }
+                    }
+                }
+                
+                DispatchQueue.main.async {
+                    if let index = self.currentGames.firstIndex(where: { $0.id == gameID }) {
+                        let game = self.currentGames[index]
+                        let avgDouble = Double(avg) ?? 0.0
+                        self.currentGames[index] = GameState(
+                            id: game.id,
+                            home: game.home,
+                            away: game.away,
+                            homeScore: game.homeScore,
+                            awayScore: game.awayScore,
+                            inning: game.inning,
+                            isTopInning: game.isTopInning,
+                            pitcher: pitcherName,
+                            pitchCount: 0,
+                            batterBalls: balls,
+                            batterStrikes: strikes,
+                            bases: bases,
+                            batter: Batter(name: batterName, average: avgDouble, hits: hits, atBats: atBats)
+                        )
+                    }
+                }
+            } catch {
+                return
+            }
+        }
+        task.resume()
         
-        DispatchQueue.main.async {
-            self.currentGame = GameState(
-                home: "Dodgers",
-                away: "Yankees",
-                homeScore: 4,
-                awayScore: 3,
-                inning: 7,
-                isTopInning: true,
-                bases: [true, false, true],
-                pitcher: "Gerrit Cole",
-                pitchCount: 85,
-                batter: "Shohei Ohtani",
-                batterBalls: 1,
-                batterStrikes: 2,
-                batterRecord: "2-4"
-            )
-            self.promptUserBeforeOverlay(game: self.currentGame!)
+        detailTimers[gameID]?.invalidate()
+        detailTimers[gameID] = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
+            self?.fetchGameDetails(gamePk: gamePk, gameID: gameID)
         }
     }
     
     
-    func showOverlay() {
-        guard overlayWindow == nil else { return }
+    private func injectFakeGameIfNeeded(trackedTeams: [String]) {
+        #if DEBUG
+        let fakeGames = [
+            ("Yankees", "Dodgers", "Los Angeles Dodgers", "New York Yankees", 4, 3),
+            ("Blue Jays", "Red Sox", "Boston Red Sox", "Toronto Blue Jays", 2, 5),
+            ("Astros", "Rangers", "Texas Rangers", "Houston Astros", 1, 1)
+        ]
+        
+        for (team1, team2, homeFull, awayFull, homeScore, awayScore) in fakeGames {
+            guard trackedTeams.contains(where: { team1.contains($0) || team2.contains($0) }) else { continue }
+            
+            let gameID = "\(awayFull)_vs_\(homeFull)"
+            guard !promptedGames.contains(gameID) else { continue }
+            promptedGames.insert(gameID)
+            
+            let newGame = GameState(
+                id: gameID,
+                home: homeFull,
+                away: awayFull,
+                homeScore: homeScore,
+                awayScore: awayScore,
+                inning: Int.random(in: 5...9),
+                isTopInning: Bool.random(),
+                pitcher: ["Gerrit Cole", "Justin Verlander", "Max Scherzer"].randomElement()!,
+                pitchCount: Int.random(in: 60...100),
+                batterBalls: Int.random(in: 0...3),
+                batterStrikes: Int.random(in: 0...2),
+                bases: [Bool.random(), Bool.random(), Bool.random()],
+                batter: Batter(
+                    name: ["Shohei Ohtani", "Aaron Judge", "Vladimir Guerrero Jr."].randomElement()!,
+                    average: Double.random(in: 0.250...0.350),
+                    hits: Int.random(in: 0...4),
+                    atBats: Int.random(in: 3...5)
+                )
+            )
+            
+            DispatchQueue.main.async {
+                self.currentGames.append(newGame)
+                self.promptUserBeforeOverlay(game: newGame)
+            }
+        }
+        #endif
+    }
+    
+    
+    func showOverlay(for game: GameState) {
+        if overlayWindows[game.id] != nil {
+            overlayWindows[game.id]?.makeKeyAndOrderFront(nil)
+            return
+        }
         
         let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        let width: CGFloat = 260
-        let height: CGFloat = 120
+        let width: CGFloat = 380
+        let height: CGFloat = 200
         let x = screenFrame.maxX - width - 20
-        let y = screenFrame.maxY - height - 40
+        let y = screenFrame.maxY - height - 40 - (CGFloat(overlayWindows.count) * 220)
         
         let overlay = NSWindow(
             contentRect: NSRect(x: x, y: y, width: width, height: height),
-            styleMask: [.borderless],
+            styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         
+        overlay.title = "\(game.away) @ \(game.home)"
+        overlay.titlebarAppearsTransparent = true
+        overlay.titleVisibility = .hidden
+        overlay.isMovableByWindowBackground = true
         overlay.isOpaque = false
         overlay.backgroundColor = .clear
         overlay.level = .floating
-        overlay.collectionBehavior = [.canJoinAllSpaces, .ignoresCycle]
+        overlay.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         
         overlay.contentView = NSHostingView(
             rootView: OverlayView(
-                game: currentGame!,
-                closeAction: { [weak self] in self?.closeOverlay() }
+                game: game,
+                closeAction: { [weak self] in self?.closeOverlay(for: game.id) }
             )
         )
         
         overlay.makeKeyAndOrderFront(nil)
-        overlayWindow = overlay
+        overlayWindows[game.id] = overlay
     }
     
-    func closeOverlay() {
-        overlayWindow?.close()
-        overlayWindow = nil
+    func closeOverlay(for gameID: String) {
+        overlayWindows[gameID]?.close()
+        overlayWindows.removeValue(forKey: gameID)
+        detailTimers[gameID]?.invalidate()
+        detailTimers.removeValue(forKey: gameID)
     }
         
     func promptUserBeforeOverlay(game: GameState) {
         let alert = NSAlert()
-        alert.messageText = "\(game.home) vs \(game.away) is live now!"
+        alert.messageText = "\(game.away) @ \(game.home) is LIVE!"
         alert.informativeText = "Do you want to watch the live scorecard?"
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Yes")
@@ -200,12 +341,7 @@ class MLBStatsService: ObservableObject {
         
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
-            showOverlay()
-        }
-    }
-    func showOverlayIfNotVisible() {
-        if overlayWindow == nil, let _ = currentGame {
-            showOverlay()
+            showOverlay(for: game)
         }
     }
 }

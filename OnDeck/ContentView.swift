@@ -38,12 +38,16 @@ struct ContentView: View {
                                 case .success(let image):
                                     image
                                         .resizable()
-                                        .scaledToFit()
+                                        .aspectRatio(contentMode: .fit)
                                         .frame(width: 32, height: 32)
                                 case .failure(_), .empty:
                                     Circle()
                                         .fill(Color.gray.opacity(0.2))
                                         .frame(width: 32, height: 32)
+                                        .overlay(
+                                            ProgressView()
+                                                .scaleEffect(0.5)
+                                        )
                                 @unknown default:
                                     Circle()
                                         .fill(Color.gray.opacity(0.2))

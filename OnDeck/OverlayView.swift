@@ -11,135 +11,133 @@ struct OverlayView: View {
     let closeAction: () -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
                 TeamLogoView(teamName: game.away)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 24, height: 24)
                 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(game.away)
-                        .font(.headline)
+                        .font(.caption)
+                        .fontWeight(.semibold)
                         .lineLimit(1)
                     Text("\(game.awayScore)")
-                        .font(.title2)
+                        .font(.title3)
                         .fontWeight(.bold)
                 }
                 
                 Text("@")
                     .foregroundColor(.secondary)
-                    .padding(.horizontal, 4)
+                    .font(.caption)
                 
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(game.home)
-                        .font(.headline)
+                        .font(.caption)
+                        .fontWeight(.semibold)
                         .lineLimit(1)
                     Text("\(game.homeScore)")
-                        .font(.title2)
+                        .font(.title3)
                         .fontWeight(.bold)
                 }
                 
                 TeamLogoView(teamName: game.home)
-                    .frame(width: 28, height: 28)
+                    .frame(width: 24, height: 24)
 
                 Spacer()
 
                 Button(action: closeAction) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.secondary)
-                        .font(.title3)
+                        .font(.body)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.borderless)
             }
 
             Divider()
 
-            HStack(spacing: 16) {
-                Label("Inning \(game.inning) \(game.isTopInning ? "▲" : "▼")", systemImage: "clock.fill")
-                    .font(.subheadline)
+            HStack(spacing: 12) {
+                Label("Inn \(game.inning) \(game.isTopInning ? "▲" : "▼")", systemImage: "clock.fill")
+                    .font(.caption)
                     .foregroundColor(.secondary)
                 
                 Spacer()
                 
-                HStack(spacing: 4) {
+                HStack(spacing: 3) {
                     Text("Count:")
-                        .font(.subheadline)
+                        .font(.caption)
                         .foregroundColor(.secondary)
                     Text("\(game.batterBalls)-\(game.batterStrikes)")
-                        .font(.subheadline)
+                        .font(.caption)
                         .fontWeight(.semibold)
                 }
             }
 
-            HStack(alignment: .top, spacing: 20) {
-                VStack(alignment: .leading, spacing: 6) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("At Bat")
-                            .font(.caption2)
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("AT BAT")
+                            .font(.system(size: 9))
                             .foregroundColor(.secondary)
-                            .textCase(.uppercase)
                         
                         if let batter = game.batter {
                             Text(batter.name)
-                                .font(.callout)
+                                .font(.caption)
                                 .fontWeight(.semibold)
                                 .lineLimit(1)
-                            HStack(spacing: 6) {
+                            HStack(spacing: 4) {
                                 Text(String(format: ".%.0f", batter.average * 1000))
-                                    .font(.caption)
+                                    .font(.system(size: 10))
                                     .foregroundColor(.secondary)
                                 Text("•")
                                     .foregroundColor(.secondary)
-                                    .font(.caption2)
+                                    .font(.system(size: 8))
                                 Text("\(batter.hits)-\(batter.atBats)")
-                                    .font(.caption)
+                                    .font(.system(size: 10))
                                     .foregroundColor(.secondary)
                             }
                         } else {
                             Text("Loading...")
-                                .font(.callout)
+                                .font(.caption)
                                 .foregroundColor(.secondary)
                         }
                     }
                     
                     Divider()
-                        .padding(.vertical, 3)
                     
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Pitcher")
-                            .font(.caption2)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("PITCHER")
+                            .font(.system(size: 9))
                             .foregroundColor(.secondary)
-                            .textCase(.uppercase)
                         
                         Text(game.pitcher)
-                            .font(.callout)
+                            .font(.caption)
                             .fontWeight(.semibold)
                             .lineLimit(1)
                         
                         if game.pitchCount > 0 {
                             Text("\(game.pitchCount) pitches")
-                                .font(.caption)
+                                .font(.system(size: 10))
                                 .foregroundColor(.secondary)
                         }
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                VStack(spacing: 6) {
-                    Text("Bases")
-                        .font(.caption2)
+                VStack(spacing: 4) {
+                    Text("BASES")
+                        .font(.system(size: 9))
                         .foregroundColor(.secondary)
-                        .textCase(.uppercase)
                     
                     BasesView(bases: game.bases)
                 }
             }
         }
-        .padding(14)
-        .frame(width: 380, height: 200)
+        .padding(12)
+        .frame(width: 340, height: 180)
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: 12)
                 .fill(Color(NSColor.windowBackgroundColor))
-                .shadow(color: Color.black.opacity(0.3), radius: 12, x: 0, y: 4)
+                .shadow(color: Color.black.opacity(0.3), radius: 8, x: 0, y: 2)
         )
     }
 }
@@ -150,18 +148,18 @@ struct BasesView: View {
     var body: some View {
         ZStack {
             Base(isOccupied: bases.count > 1 && bases[1])
-                .offset(y: -20)
+                .offset(y: -16)
             
             Base(isOccupied: bases.count > 2 && bases[2])
-                .offset(x: -20, y: 0)
+                .offset(x: -16, y: 0)
             
             Base(isOccupied: bases.count > 0 && bases[0])
-                .offset(x: 20, y: 0)
+                .offset(x: 16, y: 0)
             
             Base(isOccupied: false)
-                .offset(y: 20)
+                .offset(y: 16)
         }
-        .frame(width: 65, height: 65)
+        .frame(width: 55, height: 55)
     }
 }
 
@@ -170,7 +168,7 @@ struct Base: View {
     var body: some View {
         Rectangle()
             .fill(isOccupied ? Color.green : Color.gray.opacity(0.3))
-            .frame(width: 15, height: 15)
+            .frame(width: 12, height: 12)
             .rotationEffect(.degrees(45))
             .overlay(
                 Rectangle()
@@ -184,23 +182,20 @@ struct TeamLogoView: View {
     let teamName: String
 
     var body: some View {
-        if let url = URL(string: logoURL(for: teamName)) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .scaledToFit()
-                case .failure(_):
-                    placeholderView
-                case .empty:
-                    ProgressView()
-                @unknown default:
-                    placeholderView
-                }
+        AsyncImage(url: URL(string: logoURL(for: teamName))) { phase in
+            switch phase {
+            case .success(let image):
+                image
+                    .resizable()
+                    .scaledToFit()
+            case .failure(_):
+                placeholderView
+            case .empty:
+                ProgressView()
+                    .scaleEffect(0.5)
+            @unknown default:
+                placeholderView
             }
-        } else {
-            placeholderView
         }
     }
     
@@ -210,7 +205,7 @@ struct TeamLogoView: View {
             .overlay(
                 Image(systemName: "baseball.fill")
                     .foregroundColor(.white)
-                    .font(.caption)
+                    .font(.system(size: 10))
             )
     }
 }

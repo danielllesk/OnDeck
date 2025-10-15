@@ -5,6 +5,7 @@
 //  Created by Danny Eskandar on 2025-10-12.
 //
 import SwiftUI
+import SVGView
 
 struct OverlayView: View {
     let game: GameState
@@ -44,13 +45,6 @@ struct OverlayView: View {
                     .frame(width: 24, height: 24)
 
                 Spacer()
-
-                Button(action: closeAction) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                        .font(.body)
-                }
-                .buttonStyle(.borderless)
             }
 
             Divider()
@@ -134,11 +128,6 @@ struct OverlayView: View {
         }
         .padding(12)
         .frame(width: 340, height: 180)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(NSColor.windowBackgroundColor))
-                .shadow(color: Color.black.opacity(0.3), radius: 8, x: 0, y: 2)
-        )
     }
 }
 
@@ -155,9 +144,6 @@ struct BasesView: View {
             
             Base(isOccupied: bases.count > 0 && bases[0])
                 .offset(x: 16, y: 0)
-            
-            Base(isOccupied: false)
-                .offset(y: 16)
         }
         .frame(width: 55, height: 55)
     }
@@ -177,13 +163,12 @@ struct Base: View {
             )
     }
 }
-import SVGView
 
 struct TeamLogoView: View {
     let teamName: String
     
     var body: some View {
-        if let url = URL(string: logoURL(for: teamName).replacingOccurrences(of: ".png", with: ".svg")) {
+        if let url = URL(string: logoURL(for: teamName)) {
             SVGView(contentsOf: url)
                 .frame(width: 30, height: 30)
                 .clipShape(Circle())

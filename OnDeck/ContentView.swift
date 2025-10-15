@@ -5,6 +5,7 @@
 //  Created by Danny Eskandar on 2025-10-12.
 //
 import SwiftUI
+import SVGView
 
 struct ContentView: View {
     @StateObject private var mlbService = MLBStatsService()
@@ -33,27 +34,8 @@ struct ContentView: View {
                 VStack(spacing: 0) {
                     ForEach(availableTeams) { team in
                         HStack(spacing: 12) {
-                            AsyncImage(url: URL(string: team.logoURL)) { phase in
-                                switch phase {
-                                case .success(let image):
-                                    image
-                                        .resizable()
-                                        .aspectRatio(contentMode: .fit)
-                                        .frame(width: 32, height: 32)
-                                case .failure(_), .empty:
-                                    Circle()
-                                        .fill(Color.gray.opacity(0.2))
-                                        .frame(width: 32, height: 32)
-                                        .overlay(
-                                            ProgressView()
-                                                .scaleEffect(0.5)
-                                        )
-                                @unknown default:
-                                    Circle()
-                                        .fill(Color.gray.opacity(0.2))
-                                        .frame(width: 32, height: 32)
-                                }
-                            }
+                            TeamLogoView(teamName: team.name)
+                                .frame(width: 32, height: 32)
 
                             Text(team.name)
                                 .font(.body)

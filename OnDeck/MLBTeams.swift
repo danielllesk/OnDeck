@@ -14,7 +14,7 @@ struct MLBTeam: Identifiable, Codable, Hashable {
 }
 
 let allTeams: [MLBTeam] = [
-    MLBTeam(id: "NYY", name: "Yankees", logoURL: "https://www.mlbstatic.com/team-logos/109.svg"),
+    MLBTeam(id: "NYY", name: "Yankees", logoURL: "https://www.mlbstatic.com/team-logos/147.svg"),
     MLBTeam(id: "TOR", name: "Blue Jays", logoURL: "https://www.mlbstatic.com/team-logos/141.svg"),
     MLBTeam(id: "BOS", name: "Red Sox", logoURL: "https://www.mlbstatic.com/team-logos/111.svg"),
     MLBTeam(id: "BAL", name: "Orioles", logoURL: "https://www.mlbstatic.com/team-logos/110.svg"),
@@ -50,8 +50,8 @@ func logoURL(for team: String) -> String {
     let teamLower = team.lowercased()
     
     let teamMap: [String: String] = [
-        "yankees": "109",
-        "new york yankees": "109",
+        "yankees": "147",
+        "new york yankees": "147",
         "blue jays": "141",
         "toronto blue jays": "141",
         "red sox": "111",

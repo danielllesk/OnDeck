@@ -239,46 +239,97 @@ class MLBStatsService: ObservableObject {
     
     private func injectFakeGameIfNeeded(trackedTeams: [String]) {
         #if DEBUG
+        guard currentGames.isEmpty else { return }
+        
         let fakeGames = [
-            ("Yankees", "Dodgers", "Los Angeles Dodgers", "New York Yankees", 4, 3),
-            ("Blue Jays", "Red Sox", "Boston Red Sox", "Toronto Blue Jays", 2, 5),
-            ("Astros", "Rangers", "Texas Rangers", "Houston Astros", 1, 1)
+            ("Yankees", "Dodgers", "Los Angeles Dodgers", "New York Yankees", 4, 3, 660271),
+            ("Blue Jays", "Red Sox", "Boston Red Sox", "Toronto Blue Jays", 2, 5, 665742),
+            ("Astros", "Rangers", "Texas Rangers", "Houston Astros", 1, 1, 514888)
         ]
         
-        for (team1, team2, homeFull, awayFull, homeScore, awayScore) in fakeGames {
-            guard trackedTeams.contains(where: { team1.contains($0) || team2.contains($0) }) else { continue }
+        for (team1, team2, homeFull, awayFull, homeScore, awayScore, playerID) in fakeGames {
+            let homeTeamMatch = trackedTeams.contains(where: {
+                homeFull.lowercased().contains($0.lowercased()) || $0.lowercased().contains(team2.lowercased())
+            })
+            let awayTeamMatch = trackedTeams.contains(where: {
+                awayFull.lowercased().contains($0.lowercased()) || $0.lowercased().contains(team1.lowercased())
+            })
+            
+            guard homeTeamMatch || awayTeamMatch else { continue }
             
             let gameID = "\(awayFull)_vs_\(homeFull)"
             guard !promptedGames.contains(gameID) else { continue }
             promptedGames.insert(gameID)
             
-            let newGame = GameState(
-                id: gameID,
-                home: homeFull,
-                away: awayFull,
-                homeScore: homeScore,
-                awayScore: awayScore,
-                inning: Int.random(in: 5...9),
-                isTopInning: Bool.random(),
-                pitcher: ["Gerrit Cole", "Justin Verlander", "Max Scherzer"].randomElement()!,
-                pitchCount: Int.random(in: 60...100),
-                batterBalls: Int.random(in: 0...3),
-                batterStrikes: Int.random(in: 0...2),
-                bases: [Bool.random(), Bool.random(), Bool.random()],
-                batter: Batter(
-                    name: ["Shohei Ohtani", "Aaron Judge", "Vladimir Guerrero Jr."].randomElement()!,
-                    average: Double.random(in: 0.250...0.350),
-                    hits: Int.random(in: 0...4),
-                    atBats: Int.random(in: 3...5)
+            fetchRealPlayerStats(playerID: playerID) { batter in
+                let newGame = GameState(
+                    id: gameID,
+                    home: homeFull,
+                    away: awayFull,
+                    homeScore: homeScore,
+                    awayScore: awayScore,
+                    inning: Int.random(in: 5...9),
+                    isTopInning: Bool.random(),
+                    pitcher: ["Gerrit Cole", "Justin Verlander", "Max Scherzer"].randomElement()!,
+                    pitchCount: Int.random(in: 60...100),
+                    batterBalls: Int.random(in: 0...3),
+                    batterStrikes: Int.random(in: 0...2),
+                    bases: [Bool.random(), Bool.random(), Bool.random()],
+                    batter: batter
                 )
-            )
-            
-            DispatchQueue.main.async {
-                self.currentGames.append(newGame)
-                self.promptUserBeforeOverlay(game: newGame)
+                
+                DispatchQueue.main.async {
+                    if !self.currentGames.contains(where: { $0.id == gameID }) {
+                        self.currentGames.append(newGame)
+                        self.promptUserBeforeOverlay(game: newGame)
+                    }
+                }
             }
         }
         #endif
+    }
+    
+    private func fetchRealPlayerStats(playerID: Int, completion: @escaping (Batter) -> Void) {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        guard let url = URL(string: "https://statsapi.mlb.com/api/v1/people/\(playerID)/stats?stats=season&season=\(currentYear)") else {
+            completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
+            return
+        }
+        
+        let task = URLSession.shared.dataTask(with: url) { data, _, error in
+            guard let data = data, error == nil else {
+                completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
+                return
+            }
+            
+            do {
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                guard let stats = json?["stats"] as? [[String: Any]],
+                      let firstStat = stats.first,
+                      let splits = firstStat["splits"] as? [[String: Any]],
+                      let firstSplit = splits.first,
+                      let statData = firstSplit["stat"] as? [String: Any] else {
+                    completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
+                    return
+                }
+                
+                let avg = statData["avg"] as? String ?? ".000"
+                let hits = statData["hits"] as? Int ?? 0
+                let atBats = statData["atBats"] as? Int ?? 0
+                
+                guard let playerData = json?["people"] as? [[String: Any]],
+                      let player = playerData.first,
+                      let fullName = player["fullName"] as? String else {
+                    completion(Batter(name: "Unknown Player", average: Double(avg) ?? 0.0, hits: hits, atBats: atBats))
+                    return
+                }
+                
+                completion(Batter(name: fullName, average: Double(avg) ?? 0.0, hits: hits, atBats: atBats))
+            } catch {
+                completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
+            }
+        }
+        task.resume()
     }
     
     func showOverlay(for game: GameState) {

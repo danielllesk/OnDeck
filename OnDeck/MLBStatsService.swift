@@ -337,25 +337,30 @@ class MLBStatsService: ObservableObject {
             existingWindow.makeKeyAndOrderFront(nil)
             return
         }
-        
+
         let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let width: CGFloat = 340
         let height: CGFloat = 220
         let x = screenFrame.maxX - width - 20
         let y = screenFrame.maxY - height - 60 - (CGFloat(overlayWindows.count) * 240)
-        
+
         let overlay = NSWindow(
             contentRect: NSRect(x: x, y: y, width: width, height: height),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
-        
+
         overlay.title = "\(game.away) @ \(game.home)"
         overlay.isMovableByWindowBackground = true
         overlay.level = .floating
-        overlay.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-        
+
+        // ✅ FIXED: compatible behaviors only
+        overlay.collectionBehavior = [
+            .canJoinAllSpaces,
+            .fullScreenAuxiliary
+        ]
+
         let hostingView = NSHostingView(
             rootView: OverlayView(
                 game: game,
@@ -367,20 +372,32 @@ class MLBStatsService: ObservableObject {
                 }
             )
         )
-        
+
         overlay.contentView = hostingView
         overlay.delegate = OverlayWindowDelegate(service: self, gameID: game.id)
-        
         overlay.makeKeyAndOrderFront(nil)
         overlayWindows[game.id] = overlay
     }
+
+
+    
+    func closeAllOverlays() {
+        for (id, window) in overlayWindows {
+            window.close()
+            detailTimers[id]?.invalidate()
+        }
+        overlayWindows.removeAll()
+        detailTimers.removeAll()
+    }
     
     func closeOverlay(for gameID: String) {
+        guard overlayWindows[gameID] != nil else { return }
         overlayWindows[gameID]?.close()
         overlayWindows.removeValue(forKey: gameID)
         detailTimers[gameID]?.invalidate()
         detailTimers.removeValue(forKey: gameID)
     }
+
     
     func promptUserBeforeOverlay(game: GameState) {
         let alert = NSAlert()
@@ -398,15 +415,16 @@ class MLBStatsService: ObservableObject {
 }
 
 class OverlayWindowDelegate: NSObject, NSWindowDelegate {
-    let service: MLBStatsService
+    weak var service: MLBStatsService?
     let gameID: String
-    
+
     init(service: MLBStatsService, gameID: String) {
         self.service = service
         self.gameID = gameID
     }
-    
+
     func windowWillClose(_ notification: Notification) {
-        service.closeOverlay(for: gameID)
+        service?.closeOverlay(for: gameID)
     }
 }
+

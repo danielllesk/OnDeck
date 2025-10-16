@@ -5,6 +5,7 @@
 //  Created by Danny Eskandar on 2025-10-12.
 //
 import SwiftUI
+import AppKit
 import SVGView
 
 struct ContentView: View {
@@ -129,14 +130,14 @@ struct ContentView: View {
                                                 .frame(width: 32, height: 32)
                                         }
 
-                                        HStack(spacing: 10) {
-                                            Label("Inning \(game.inning) \(game.isTopInning ? "▲" : "▼")", systemImage: "sportscourt.fill")
+                                        HStack(spacing: 20) {
+                                            Label("\(game.awayScore) - \(game.homeScore)", systemImage: "sportscourt.fill")
                                                 .font(.subheadline)
-                                            Label(game.status, systemImage: "clock.fill")
+                                            
+                                            Label("Inning \(game.inning) \(game.isTopInning ? "▲" : "▼")", systemImage: "clock.fill")
                                                 .font(.subheadline)
                                                 .foregroundColor(.secondary)
                                         }
-
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(16)

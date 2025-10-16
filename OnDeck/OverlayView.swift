@@ -7,38 +7,12 @@
 import SwiftUI
 import SVGView
 
-
 struct OverlayView: View {
-    @ObservedObject var service: MLBStatsService
-    let gameID: String
+    let game: GameState
     let closeAction: () -> Void
 
-    private var game: GameState? {
-        service.currentGames.first { $0.id == gameID }
-    }
-
     var body: some View {
-        Group {
-            if let game = game {
-                content(for: game)
-            } else {
-                VStack(spacing: 8) {
-                    HStack {
-                        Text("Loading game...")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Button(action: closeAction) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(12)
-                .frame(width: 340, height: 180)
-            }
-        }
+        content(for: game)
     }
 
     @ViewBuilder
@@ -46,7 +20,7 @@ struct OverlayView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 TeamLogoView(teamName: game.away)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 26, height: 26)
 
                 VStack(alignment: .leading, spacing: 1) {
                     Text(game.away)
@@ -73,20 +47,13 @@ struct OverlayView: View {
                 }
 
                 TeamLogoView(teamName: game.home)
-                    .frame(width: 24, height: 24)
+                    .frame(width: 26, height: 26)
 
                 Spacer()
-
-                Button(action: closeAction) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
-                }
-                .buttonStyle(.plain)
             }
 
             Divider()
 
-            // Inning + count
             HStack(spacing: 12) {
                 Label {
                     Text("Inn \(game.inning) \(game.isTopInning ? "▲" : "▼")")
@@ -152,12 +119,12 @@ struct OverlayView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Right column: Bases drawing
-                VStack(spacing: 4) {
+                VStack(spacing: 6) {
                     Text("BASES")
                         .font(.system(size: 9))
                         .foregroundColor(.secondary)
                     BasesView(bases: game.bases)
+                    OutsView(outs: game.outs)
                 }
             }
         }
@@ -166,13 +133,10 @@ struct OverlayView: View {
     }
 
     private func formattedAverage(_ avg: Double) -> String {
-
-        String(format: "%.3f", avg).hasPrefix("0") ?
-            String(format: ".%03d", Int((avg * 1000).rounded())) :
-            String(format: "%.3f", avg)
+        if avg <= 0 { return ".000" }
+        return String(format: ".%03d", Int((avg * 1000).rounded()))
     }
 }
-
 
 
 struct BasesView: View {
@@ -182,11 +146,10 @@ struct BasesView: View {
         ZStack {
             Base(isOccupied: bases.count > 1 && bases[1])
                 .offset(y: -18)
-
             Base(isOccupied: bases.count > 2 && bases[2])
-                .offset(x: -18, y: 0)
+                .offset(x: -18)
             Base(isOccupied: bases.count > 0 && bases[0])
-                .offset(x: 18, y: 0)
+                .offset(x: 18)
         }
         .frame(width: 60, height: 60)
     }
@@ -196,17 +159,36 @@ struct Base: View {
     let isOccupied: Bool
     var body: some View {
         Rectangle()
-            .fill(isOccupied ? Color.yellow : Color.white.opacity(0.6))
+            .fill(isOccupied ? Color.yellow : Color.white)
             .frame(width: 14, height: 14)
             .rotationEffect(.degrees(45))
             .overlay(
                 Rectangle()
-                    .stroke(Color.primary.opacity(0.15), lineWidth: 1)
+                    .stroke(Color.primary.opacity(0.12), lineWidth: 1)
                     .rotationEffect(.degrees(45))
             )
     }
 }
 
+struct OutsView: View {
+    let outs: Int
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<3) { idx in
+                if idx < max(0, min(outs, 3)) {
+                    Circle()
+                        .fill(Color.primary)
+                        .frame(width: 8, height: 8)
+                } else {
+                    Circle()
+                        .stroke(Color.primary.opacity(0.6), lineWidth: 1)
+                        .frame(width: 8, height: 8)
+                }
+            }
+        }
+        .padding(.top, 6)
+    }
+}
 
 struct TeamLogoView: View {
     let teamName: String
@@ -230,5 +212,6 @@ struct TeamLogoView: View {
         }
     }
 }
+
 
 

@@ -4,39 +4,27 @@
 //
 //  Created by Danny Eskandar on 2025-10-12.
 //
-
 import SwiftUI
+import AppKit
 
 @main
 struct OnDeckApp: App {
-    @StateObject private var statsService: MLBStatsService
-
-    init() {
-        let service = MLBStatsService()
-        _statsService = StateObject(wrappedValue: service)
-
-        NotificationCenter.default.addObserver(
-            forName: NSApplication.willTerminateNotification,
-            object: nil,
-            queue: .main
-        ) { [weak service] _ in
-            service?.closeAllOverlays()
-        }
-    }
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(statsService)
         }
         .commands {
-            CommandGroup(replacing: .appTermination) {
-                Button("Quit OnDeck") {
-                    statsService.closeAllOverlays()
-                    NSApp.terminate(nil)
-                }
-                .keyboardShortcut("q")
-            }
         }
     }
 }
+
+class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillTerminate(_ notification: Notification) {}
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+}
+

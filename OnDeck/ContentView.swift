@@ -132,7 +132,7 @@ struct ContentView: View {
                                         }
 
                                         HStack(spacing: 20) {
-                                            Label("\(game.awayScore) - \(game.homeScore)", systemImage: "sportscourt.fill")
+                                            Label("\(game.awayScore) - \(game.homeScore)", systemImage: "baseball.diamond.bases")
                                                 .font(.subheadline)
                                             
                                             Label("Inning \(game.inning) \(game.isTopInning ? "▲" : "▼")", systemImage: "clock.fill")
@@ -162,7 +162,6 @@ struct ContentView: View {
         .padding(24)
         .frame(width: 450, height: 700)
         .onAppear {
-            // Don't auto-load previous selections - let user choose fresh
             selectedTeams = Set()
         }
     }

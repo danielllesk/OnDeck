@@ -65,7 +65,6 @@ class MLBStatsService: ObservableObject {
         let task = URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
             guard let self = self else { return }
 
-            // Handle network errors gracefully
             if let error = error {
                 DispatchQueue.main.async {
                     self.injectFakeGameIfNeeded(trackedTeams: self.selectedTeams)
@@ -206,7 +205,7 @@ class MLBStatsService: ObservableObject {
                 let batterName = batterData?["fullName"] as? String ?? "Unknown Batter"
                 let batterID = batterData?["id"] as? Int ?? 0
 
-                // Get stats from boxscore
+                // from da box
                 let boxscore = liveData["boxscore"] as? [String: Any]
                 let teams = boxscore?["teams"] as? [String: Any]
                 
@@ -276,7 +275,7 @@ class MLBStatsService: ObservableObject {
                     }
                 }
 
-                print("Updating game \(gameID): Pitcher: \(pitcherName), Pitch Count: \(pitchCount), Batter: \(batterName) (.avg: \(seasonAvg), \(hits)-\(atBats) tonight), Count: \(balls)-\(strikes), Outs: \(outs), Bases: \(bases)")
+                //print("Updating game \(gameID): Pitcher: \(pitcherName), Pitch Count: \(pitchCount), Batter: \(batterName) (.avg: \(seasonAvg), \(hits)-\(atBats) tonight), Count: \(balls)-\(strikes), Outs: \(outs), Bases: \(bases)")
 
                 DispatchQueue.main.async {
                     if let index = self.currentGames.firstIndex(where: { $0.id == gameID }) {
@@ -320,7 +319,6 @@ class MLBStatsService: ObservableObject {
 
     public func refreshNow(gameID: String) {
         guard let game = currentGames.first(where: { $0.id == gameID }) else { return }
-        print("Manual refresh triggered for \(gameID)")
         checkForLiveGames(trackedTeams: selectedTeams)
     }
 
@@ -372,7 +370,6 @@ class MLBStatsService: ObservableObject {
             window.performClose(nil)
             detailTimers[id]?.invalidate()
         }
-        // Fallback cleanup
         for id in Array(overlayWindows.keys) {
             cleanupOverlay(for: id)
         }

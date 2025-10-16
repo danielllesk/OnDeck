@@ -72,10 +72,12 @@ struct ContentView: View {
             .cornerRadius(10)
 
             Button(action: {
+                let teamNames = Array(selectedTeams.map { $0.name })
+                print("💾 Saving teams: \(teamNames)")
                 if let data = try? JSONEncoder().encode(Array(selectedTeams)) {
                     trackedTeamsData = String(data: data, encoding: .utf8) ?? "[]"
                 }
-                mlbService.startTracking(teams: Array(selectedTeams.map { $0.name }))
+                mlbService.startTracking(teams: teamNames)
             }) {
                 Label("Save & Start Tracking", systemImage: "baseball.fill")
                     .frame(maxWidth: .infinity)
@@ -161,7 +163,8 @@ struct ContentView: View {
         .padding(24)
         .frame(width: 450, height: 700)
         .onAppear {
-            selectedTeams = Set(trackedTeamsArray)
+            // Don't auto-load previous selections - let user choose fresh
+            selectedTeams = Set()
         }
     }
 }

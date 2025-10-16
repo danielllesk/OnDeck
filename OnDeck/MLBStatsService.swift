@@ -22,6 +22,7 @@ class MLBStatsService: ObservableObject {
 
     func startTracking(teams: [String]) {
         // reset state and timers on each start
+        print("🚀 Starting tracking with teams: \(teams)")
         selectedTeams = teams
         closeAllOverlays()
         timer?.invalidate()
@@ -32,7 +33,7 @@ class MLBStatsService: ObservableObject {
 
         timer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
             self?.resetPromptedGamesIfNewDay()
-            self?.checkForLiveGames(trackedTeams: teams)
+            self?.checkForLiveGames(trackedTeams: self?.selectedTeams ?? [])
         }
         timer?.fire()
     }
@@ -67,7 +68,7 @@ class MLBStatsService: ObservableObject {
 
             if error != nil {
                 DispatchQueue.main.async {
-                    self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                    self.injectFakeGameIfNeeded(trackedTeams: self.selectedTeams)
                 }
                 return
             }
@@ -82,7 +83,7 @@ class MLBStatsService: ObservableObject {
                 guard let dates = json?["dates"] as? [[String: Any]],
                       !dates.isEmpty,
                       let gamesArray = dates.first?["games"] as? [[String: Any]] else {
-                    self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                    self.injectFakeGameIfNeeded(trackedTeams: self.selectedTeams)
                     return
                 }
 
@@ -102,7 +103,7 @@ class MLBStatsService: ObservableObject {
                                  detailedState.contains("Warmup")
 
                     if isLive,
-                       trackedTeams.contains(where: {
+                       selectedTeams.contains(where: {
                            homeName.lowercased().contains($0.lowercased()) ||
                            awayName.lowercased().contains($0.lowercased())
                        }) {
@@ -166,11 +167,11 @@ class MLBStatsService: ObservableObject {
                         !liveGameIDs.contains(game.id)
                     }
 
-                    self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                    self.injectFakeGameIfNeeded(trackedTeams: self.selectedTeams)
                 }
             } catch {
                 DispatchQueue.main.async {
-                    self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                    self.injectFakeGameIfNeeded(trackedTeams: self.selectedTeams)
                 }
             }
         }
@@ -348,7 +349,11 @@ class MLBStatsService: ObservableObject {
     private func injectFakeGameIfNeeded(trackedTeams: [String]) {
         #if DEBUG
         guard currentGames.isEmpty else { return }
+        guard !trackedTeams.isEmpty else { return }
+        
+        print("🔍 Fake game injection - tracked teams: \(trackedTeams)")
         let normalizedTracked = Set(trackedTeams.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
+        print("🔍 Normalized tracked: \(normalizedTracked)")
 
         let fakeGames = [
             ("Yankees", "Dodgers", "Los Angeles Dodgers", "New York Yankees", 4, 3),
@@ -356,8 +361,10 @@ class MLBStatsService: ObservableObject {
         ]
 
         for (team1, team2, homeFull, awayFull, homeScore, awayScore) in fakeGames {
-            let candidates = [team1, team2, homeFull, awayFull].map { $0.lowercased() }
+            let candidates = [team1, team2, homeFull, awayFull].map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            print("🔍 Checking fake game: \(team1) vs \(team2) - candidates: \(candidates)")
             let shouldInject = candidates.contains { normalizedTracked.contains($0) }
+            print("🔍 Should inject: \(shouldInject)")
             guard shouldInject else { continue }
 
             let gameID = "\(awayFull)_vs_\(homeFull)"

@@ -27,5 +27,6 @@ struct GameState: Identifiable {
     let batterStrikes: Int
     let bases: [Bool]
     let batter: Batter?
+    let status: String 
 }
 

@@ -129,14 +129,14 @@ struct ContentView: View {
                                                 .frame(width: 32, height: 32)
                                         }
 
-                                        HStack(spacing: 20) {
-                                            Label("\(game.awayScore) - \(game.homeScore)", systemImage: "sportscourt.fill")
+                                        HStack(spacing: 10) {
+                                            Label("Inning \(game.inning) \(game.isTopInning ? "▲" : "▼")", systemImage: "sportscourt.fill")
                                                 .font(.subheadline)
-                                            
-                                            Label("Inning \(game.inning) \(game.isTopInning ? "▲" : "▼")", systemImage: "clock.fill")
+                                            Label(game.status, systemImage: "clock.fill")
                                                 .font(.subheadline)
                                                 .foregroundColor(.secondary)
                                         }
+
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                     .padding(16)

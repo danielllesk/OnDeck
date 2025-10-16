@@ -10,65 +10,144 @@ import SwiftUI
 
 class MLBStatsService: ObservableObject {
     @Published var currentGames: [GameState] = []
-    
+    private var isActive = true
+
     private var overlayWindows: [String: NSWindow] = [:]
     private var timer: Timer?
     private var detailTimers: [String: Timer] = [:]
     private var promptedGames: Set<String> = []
     private var lastPromptDate = ""
-    
+
     func startTracking(teams: [String]) {
         timer?.invalidate()
-        
         timer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
-            self?.resetPromptedGamesIfNewDay()
-            self?.checkForLiveGames(trackedTeams: teams)
+            guard let self = self, self.isActive else { return }
+            self.resetPromptedGamesIfNewDay()
+            self.checkForLiveGames(trackedTeams: teams)
         }
         timer?.fire()
     }
-        
+
+    func closeAllOverlays() {
+        isActive = false
+        timer?.invalidate()
+        detailTimers.values.forEach { $0.invalidate() }
+
+        for (id, window) in overlayWindows {
+            window.close()
+            detailTimers[id]?.invalidate()
+        }
+        overlayWindows.removeAll()
+        detailTimers.removeAll()
+    }
+
+    func closeOverlay(for gameID: String) {
+        guard overlayWindows[gameID] != nil else { return }
+        overlayWindows[gameID]?.close()
+        overlayWindows.removeValue(forKey: gameID)
+        detailTimers[gameID]?.invalidate()
+        detailTimers.removeValue(forKey: gameID)
+    }
+
     private func resetPromptedGamesIfNewDay() {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let today = formatter.string(from: Date())
-        
+
         if today != lastPromptDate {
             promptedGames.removeAll()
             lastPromptDate = today
         }
     }
-    
+
+    private func boxscorePitcherName(for gameID: String) -> String {
+        if let game = currentGames.first(where: { $0.id == gameID }) {
+            return game.pitcher
+        }
+        return "Unknown"
+    }
+
+    private func fetchRealPlayerStats(playerID: Int, completion: @escaping (Batter) -> Void) {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        guard let url = URL(string: "https://statsapi.mlb.com/api/v1/people/\(playerID)/stats?stats=season&season=\(currentYear)") else {
+            completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
+            return
+        }
+
+        let task = URLSession.shared.dataTask(with: url) { data, _, error in
+            guard let data = data, error == nil else {
+                completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
+                return
+            }
+
+            do {
+                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+                guard let stats = json?["stats"] as? [[String: Any]],
+                      let firstStat = stats.first,
+                      let splits = firstStat["splits"] as? [[String: Any]],
+                      let firstSplit = splits.first,
+                      let statData = firstSplit["stat"] as? [String: Any] else {
+                    completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
+                    return
+                }
+
+                let avg = statData["avg"] as? String ?? ".000"
+                let hits = statData["hits"] as? Int ?? 0
+                let atBats = statData["atBats"] as? Int ?? 0
+
+                // try to parse player name if available
+                if let people = json?["people"] as? [[String: Any]],
+                   let first = people.first,
+                   let fullName = first["fullName"] as? String {
+                    completion(Batter(name: fullName, average: Double(avg) ?? 0.0, hits: hits, atBats: atBats))
+                } else {
+                    completion(Batter(name: "Unknown Player", average: Double(avg) ?? 0.0, hits: hits, atBats: atBats))
+                }
+            } catch {
+                completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
+            }
+        }
+        task.resume()
+    }
+
     private func checkForLiveGames(trackedTeams: [String]) {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let todayString = formatter.string(from: Date())
-        
+
         guard let url = URL(string: "https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=\(todayString)&hydrate=linescore") else { return }
-        
-        let task = URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
-            guard let self = self else { return }
-            
-            if let error = error {
-                DispatchQueue.main.async {
+
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+            guard let self = self, self.isActive else { return }
+
+            if error != nil {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self, self.isActive else { return }
                     self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
                 }
                 return
             }
-            
+
             guard let data = data else {
-                self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self, self.isActive else { return }
+                    self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                }
                 return
             }
-            
+
             do {
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
                 guard let dates = json?["dates"] as? [[String: Any]],
                       !dates.isEmpty,
                       let gamesArray = dates.first?["games"] as? [[String: Any]] else {
-                    self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                    DispatchQueue.main.async { [weak self] in
+                        guard let self = self, self.isActive else { return }
+                        self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                    }
                     return
                 }
-                
+
                 for game in gamesArray {
                     guard let teams = game["teams"] as? [String: Any],
                           let home = (teams["home"] as? [String: Any])?["team"] as? [String: Any],
@@ -79,24 +158,24 @@ class MLBStatsService: ObservableObject {
                           let detailedState = status["detailedState"] as? String else {
                         continue
                     }
-                    
+
                     let isLive = detailedState.contains("In Progress") ||
                                  detailedState.contains("Delayed") ||
                                  detailedState.contains("Warmup")
-                    
-                    if isLive, trackedTeams.contains(where: {
-                        homeName.lowercased().contains($0.lowercased()) ||
-                        awayName.lowercased().contains($0.lowercased())
-                    }) {
+
+                    if isLive,
+                       trackedTeams.contains(where: {
+                           homeName.lowercased().contains($0.lowercased()) ||
+                           awayName.lowercased().contains($0.lowercased())
+                       }) {
+
                         let gameID = "\(awayName)_vs_\(homeName)"
-                        
                         let linescore = game["linescore"] as? [String: Any]
                         let homeScore = (teams["home"] as? [String: Any])?["score"] as? Int ?? 0
                         let awayScore = (teams["away"] as? [String: Any])?["score"] as? Int ?? 0
                         let inning = linescore?["currentInning"] as? Int ?? 1
-                        let inningState = linescore?["inningState"] as? String ?? "Top"
-                        let isTop = inningState.lowercased().contains("top")
-                        
+                        let isTop = linescore?["isTopInning"] as? Bool ?? true
+
                         let newGame = GameState(
                             id: gameID,
                             home: homeName,
@@ -110,10 +189,12 @@ class MLBStatsService: ObservableObject {
                             batterBalls: 0,
                             batterStrikes: 0,
                             bases: [false, false, false],
-                            batter: nil
+                            batter: nil,
+                            status: detailedState
                         )
-                        
-                        DispatchQueue.main.async {
+
+                        DispatchQueue.main.async { [weak self] in
+                            guard let self = self, self.isActive else { return }
                             if let index = self.currentGames.firstIndex(where: { $0.id == gameID }) {
                                 self.currentGames[index] = newGame
                             } else {
@@ -123,15 +204,16 @@ class MLBStatsService: ObservableObject {
                                     self.promptUserBeforeOverlay(game: newGame)
                                 }
                             }
-                            
+
                             if let gamePk = game["gamePk"] as? Int {
                                 self.fetchGameDetails(gamePk: gamePk, gameID: gameID)
                             }
                         }
                     }
                 }
-                
-                DispatchQueue.main.async {
+
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self, self.isActive else { return }
                     let liveGameIDs = gamesArray.compactMap { game -> String? in
                         guard let teams = game["teams"] as? [String: Any],
                               let home = (teams["home"] as? [String: Any])?["team"] as? [String: Any],
@@ -142,57 +224,55 @@ class MLBStatsService: ObservableObject {
                         }
                         return "\(awayName)_vs_\(homeName)"
                     }
-                    
+
                     self.currentGames.removeAll { game in
                         !liveGameIDs.contains(game.id)
                     }
-                    
+
                     self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
                 }
             } catch {
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self, self.isActive else { return }
                     self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
                 }
             }
         }
-        
+
         task.resume()
     }
-    
-    private func updateGameDetails(game: [String: Any], homeName: String, awayName: String) {
-        guard let gamePk = game["gamePk"] as? Int else { return }
-        let gameID = "\(awayName)_vs_\(homeName)"
-        fetchGameDetails(gamePk: gamePk, gameID: gameID)
-    }
-    
+
     private func fetchGameDetails(gamePk: Int, gameID: String) {
         guard let url = URL(string: "https://statsapi.mlb.com/api/v1.1/game/\(gamePk)/feed/live") else { return }
-        
+
         let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
-            guard let self = self, let data = data, error == nil else { return }
-            
+            guard let self = self, self.isActive, let data = data, error == nil else { return }
+
             do {
                 let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-                guard let liveData = json?["liveData"] as? [String: Any],
-                      let plays = liveData["plays"] as? [String: Any],
-                      let currentPlay = plays["currentPlay"] as? [String: Any] else { return }
-                
-                let matchup = currentPlay["matchup"] as? [String: Any]
-                let pitcherData = matchup?["pitcher"] as? [String: Any]
-                let pitcherName = pitcherData?["fullName"] as? String ?? "Unknown"
-                
-                let batterData = matchup?["batter"] as? [String: Any]
-                let batterName = batterData?["fullName"] as? String ?? "Unknown"
-                
-                let batterStats = matchup?["batterStats"] as? [String: Any]
-                let avg = batterStats?["avg"] as? String ?? ".000"
-                let hits = batterStats?["hits"] as? Int ?? 0
-                let atBats = batterStats?["atBats"] as? Int ?? 0
-                
+                guard
+                    let liveData = json?["liveData"] as? [String: Any],
+                    let plays = liveData["plays"] as? [String: Any],
+                    let currentPlay = plays["currentPlay"] as? [String: Any]
+                else { return }
+
+                guard let matchup = currentPlay["matchup"] as? [String: Any] else {
+                    print("No matchup data for \(gameID)")
+                    return
+                }
+
+                let pitcherData = matchup["pitcher"] as? [String: Any]
+                let pitcherName = pitcherData?["fullName"] as? String ?? "Unknown Pitcher"
+                let pitchHand = (matchup["pitchHand"] as? [String: Any])?["description"] as? String ?? ""
+
+                let batterData = matchup["batter"] as? [String: Any]
+                let batterName = batterData?["fullName"] as? String ?? "Unknown Batter"
+                let batSide = (matchup["batSide"] as? [String: Any])?["description"] as? String ?? ""
+
                 let count = currentPlay["count"] as? [String: Any]
                 let balls = count?["balls"] as? Int ?? 0
                 let strikes = count?["strikes"] as? Int ?? 0
-                
+
                 let runners = currentPlay["runners"] as? [[String: Any]] ?? []
                 var bases = [false, false, false]
                 for runner in runners {
@@ -203,11 +283,11 @@ class MLBStatsService: ObservableObject {
                         if end == "3B" { bases[2] = true }
                     }
                 }
-                
+
                 DispatchQueue.main.async {
                     if let index = self.currentGames.firstIndex(where: { $0.id == gameID }) {
                         let game = self.currentGames[index]
-                        let avgDouble = Double(avg) ?? 0.0
+
                         self.currentGames[index] = GameState(
                             id: game.id,
                             home: game.home,
@@ -216,37 +296,49 @@ class MLBStatsService: ObservableObject {
                             awayScore: game.awayScore,
                             inning: game.inning,
                             isTopInning: game.isTopInning,
-                            pitcher: pitcherName,
+                            pitcher: "\(pitcherName) (\(pitchHand))",
                             pitchCount: 0,
                             batterBalls: balls,
                             batterStrikes: strikes,
                             bases: bases,
-                            batter: Batter(name: batterName, average: avgDouble, hits: hits, atBats: atBats)
+                            batter: Batter(
+                                name: "\(batterName) (\(batSide))",
+                                average: 0.0,
+                                hits: 0,
+                                atBats: 0
+                            ),
+                            status: game.status
                         )
                     }
                 }
+
             } catch {
-                return
+                print("Error parsing live game feed for \(gameID):", error)
             }
         }
+
         task.resume()
-        
-        detailTimers[gameID]?.invalidate()
-        detailTimers[gameID] = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
-            self?.fetchGameDetails(gamePk: gamePk, gameID: gameID)
+
+        DispatchQueue.main.async {
+            self.detailTimers[gameID]?.invalidate()
+            let timer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
+                self?.fetchGameDetails(gamePk: gamePk, gameID: gameID)
+            }
+            self.detailTimers[gameID] = timer
+            RunLoop.main.add(timer, forMode: .common)
         }
     }
-    
+
     private func injectFakeGameIfNeeded(trackedTeams: [String]) {
         #if DEBUG
         guard currentGames.isEmpty else { return }
-        
+
         let fakeGames = [
             ("Yankees", "Dodgers", "Los Angeles Dodgers", "New York Yankees", 4, 3, 660271),
             ("Blue Jays", "Red Sox", "Boston Red Sox", "Toronto Blue Jays", 2, 5, 665742),
             ("Astros", "Rangers", "Texas Rangers", "Houston Astros", 1, 1, 514888)
         ]
-        
+
         for (team1, team2, homeFull, awayFull, homeScore, awayScore, playerID) in fakeGames {
             let homeTeamMatch = trackedTeams.contains(where: {
                 homeFull.lowercased().contains($0.lowercased()) || $0.lowercased().contains(team2.lowercased())
@@ -254,14 +346,15 @@ class MLBStatsService: ObservableObject {
             let awayTeamMatch = trackedTeams.contains(where: {
                 awayFull.lowercased().contains($0.lowercased()) || $0.lowercased().contains(team1.lowercased())
             })
-            
+
             guard homeTeamMatch || awayTeamMatch else { continue }
-            
+
             let gameID = "\(awayFull)_vs_\(homeFull)"
             guard !promptedGames.contains(gameID) else { continue }
             promptedGames.insert(gameID)
-            
-            fetchRealPlayerStats(playerID: playerID) { batter in
+
+            fetchRealPlayerStats(playerID: playerID) { [weak self] batter in
+                guard let self = self, self.isActive else { return }
                 let newGame = GameState(
                     id: gameID,
                     home: homeFull,
@@ -275,10 +368,12 @@ class MLBStatsService: ObservableObject {
                     batterBalls: Int.random(in: 0...3),
                     batterStrikes: Int.random(in: 0...2),
                     bases: [Bool.random(), Bool.random(), Bool.random()],
-                    batter: batter
+                    batter: Optional(batter),
+                    status: "In Progress"
                 )
-                
-                DispatchQueue.main.async {
+
+                DispatchQueue.main.async { [weak self] in
+                    guard let self = self, self.isActive else { return }
                     if !self.currentGames.contains(where: { $0.id == gameID }) {
                         self.currentGames.append(newGame)
                         self.promptUserBeforeOverlay(game: newGame)
@@ -288,50 +383,7 @@ class MLBStatsService: ObservableObject {
         }
         #endif
     }
-    
-    private func fetchRealPlayerStats(playerID: Int, completion: @escaping (Batter) -> Void) {
-        let currentYear = Calendar.current.component(.year, from: Date())
-        guard let url = URL(string: "https://statsapi.mlb.com/api/v1/people/\(playerID)/stats?stats=season&season=\(currentYear)") else {
-            completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
-            return
-        }
-        
-        let task = URLSession.shared.dataTask(with: url) { data, _, error in
-            guard let data = data, error == nil else {
-                completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
-                return
-            }
-            
-            do {
-                let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-                guard let stats = json?["stats"] as? [[String: Any]],
-                      let firstStat = stats.first,
-                      let splits = firstStat["splits"] as? [[String: Any]],
-                      let firstSplit = splits.first,
-                      let statData = firstSplit["stat"] as? [String: Any] else {
-                    completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
-                    return
-                }
-                
-                let avg = statData["avg"] as? String ?? ".000"
-                let hits = statData["hits"] as? Int ?? 0
-                let atBats = statData["atBats"] as? Int ?? 0
-                
-                guard let playerData = json?["people"] as? [[String: Any]],
-                      let player = playerData.first,
-                      let fullName = player["fullName"] as? String else {
-                    completion(Batter(name: "Unknown Player", average: Double(avg) ?? 0.0, hits: hits, atBats: atBats))
-                    return
-                }
-                
-                completion(Batter(name: fullName, average: Double(avg) ?? 0.0, hits: hits, atBats: atBats))
-            } catch {
-                completion(Batter(name: "Unknown Player", average: 0.0, hits: 0, atBats: 0))
-            }
-        }
-        task.resume()
-    }
-    
+
     func showOverlay(for game: GameState) {
         if let existingWindow = overlayWindows[game.id] {
             existingWindow.makeKeyAndOrderFront(nil)
@@ -354,16 +406,12 @@ class MLBStatsService: ObservableObject {
         overlay.title = "\(game.away) @ \(game.home)"
         overlay.isMovableByWindowBackground = true
         overlay.level = .floating
-
-        // ✅ FIXED: compatible behaviors only
-        overlay.collectionBehavior = [
-            .canJoinAllSpaces,
-            .fullScreenAuxiliary
-        ]
+        overlay.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
         let hostingView = NSHostingView(
             rootView: OverlayView(
-                game: game,
+                service: self,
+                gameID: game.id,
                 closeAction: { [weak self, weak overlay] in
                     overlay?.close()
                     self?.overlayWindows.removeValue(forKey: game.id)
@@ -379,26 +427,6 @@ class MLBStatsService: ObservableObject {
         overlayWindows[game.id] = overlay
     }
 
-
-    
-    func closeAllOverlays() {
-        for (id, window) in overlayWindows {
-            window.close()
-            detailTimers[id]?.invalidate()
-        }
-        overlayWindows.removeAll()
-        detailTimers.removeAll()
-    }
-    
-    func closeOverlay(for gameID: String) {
-        guard overlayWindows[gameID] != nil else { return }
-        overlayWindows[gameID]?.close()
-        overlayWindows.removeValue(forKey: gameID)
-        detailTimers[gameID]?.invalidate()
-        detailTimers.removeValue(forKey: gameID)
-    }
-
-    
     func promptUserBeforeOverlay(game: GameState) {
         let alert = NSAlert()
         alert.messageText = "\(game.away) @ \(game.home) is LIVE!"
@@ -406,11 +434,20 @@ class MLBStatsService: ObservableObject {
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Yes")
         alert.addButton(withTitle: "No")
-        
+
         let response = alert.runModal()
         if response == .alertFirstButtonReturn {
             showOverlay(for: game)
         }
+    }
+
+    deinit {
+        print("MLBStatsService deinitialized — cleaning up safely.")
+        timer?.invalidate()
+        detailTimers.values.forEach { $0.invalidate() }
+        detailTimers.removeAll()
+        overlayWindows.values.forEach { $0.close() }
+        overlayWindows.removeAll()
     }
 }
 
@@ -418,13 +455,20 @@ class OverlayWindowDelegate: NSObject, NSWindowDelegate {
     weak var service: MLBStatsService?
     let gameID: String
 
-    init(service: MLBStatsService, gameID: String) {
+    init(service: MLBStatsService?, gameID: String) {
         self.service = service
         self.gameID = gameID
     }
 
     func windowWillClose(_ notification: Notification) {
-        service?.closeOverlay(for: gameID)
+        guard let service = service else {
+            print("⚠️ Service already deallocated — skipping cleanup for \(gameID)")
+            return
+        }
+        service.closeOverlay(for: gameID)
+    }
+
+    deinit {
+        print("OverlayWindowDelegate for \(gameID) deinitialized safely.")
     }
 }
-

@@ -9,7 +9,20 @@ import SwiftUI
 
 @main
 struct OnDeckApp: App {
-    @StateObject private var statsService = MLBStatsService()
+    @StateObject private var statsService: MLBStatsService
+
+    init() {
+        let service = MLBStatsService()
+        _statsService = StateObject(wrappedValue: service)
+
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { [weak service] _ in
+            service?.closeAllOverlays()
+        }
+    }
 
     var body: some Scene {
         WindowGroup {
@@ -26,15 +39,4 @@ struct OnDeckApp: App {
             }
         }
     }
-
-    init() {
-        NotificationCenter.default.addObserver(
-            forName: NSApplication.willTerminateNotification,
-            object: nil,
-            queue: .main
-        ) { _ in
-            statsService.closeAllOverlays()
-        }
-    }
 }
-

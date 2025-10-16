@@ -8,11 +8,36 @@ import SwiftUI
 import SVGView
 
 struct OverlayView: View {
-    let game: GameState
+    @ObservedObject var service: MLBStatsService
+    let gameID: String
     let closeAction: () -> Void
 
+    private var game: GameState? {
+        service.currentGames.first(where: { $0.id == gameID })
+    }
+
     var body: some View {
-        content(for: game)
+        Group {
+            if let game = game {
+                content(for: game)
+            } else {
+                VStack(spacing: 8) {
+                    HStack {
+                        Text("Loading game...")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button(action: closeAction) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(12)
+                .frame(width: 340, height: 180)
+            }
+        }
     }
 
     @ViewBuilder
@@ -110,11 +135,9 @@ struct OverlayView: View {
                             .fontWeight(.semibold)
                             .lineLimit(1)
 
-                        if game.pitchCount > 0 {
-                            Text("\(game.pitchCount) pitches")
-                                .font(.system(size: 10))
-                                .foregroundColor(.secondary)
-                        }
+                        Text("\(game.pitchCount) pitches")
+                            .font(.system(size: 10))
+                            .foregroundColor(.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -129,7 +152,7 @@ struct OverlayView: View {
             }
         }
         .padding(12)
-        .frame(width: 340, height: 180)
+        .frame(width: 340, height: 200)
     }
 
     private func formattedAverage(_ avg: Double) -> String {

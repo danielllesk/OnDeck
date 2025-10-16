@@ -22,7 +22,6 @@ class MLBStatsService: ObservableObject {
 
     func startTracking(teams: [String]) {
         // reset state and timers on each start
-        print("🚀 Starting tracking with teams: \(teams)")
         selectedTeams = teams
         closeAllOverlays()
         timer?.invalidate()
@@ -40,8 +39,6 @@ class MLBStatsService: ObservableObject {
     func startTrackingIfNeeded() {
         if !selectedTeams.isEmpty {
             startTracking(teams: selectedTeams)
-        } else {
-            print("No teams selected, waiting for user to choose.")
         }
     }
 
@@ -57,16 +54,19 @@ class MLBStatsService: ObservableObject {
     }
 
     private func checkForLiveGames(trackedTeams: [String]) {
+        guard !trackedTeams.isEmpty else { return }
+        
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         let todayString = formatter.string(from: Date())
 
         guard let url = URL(string: "https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=\(todayString)&hydrate=linescore") else { return }
 
-        let task = URLSession.shared.dataTask(with: url) { [weak self] data, _, error in
+        let task = URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
             guard let self = self else { return }
 
-            if error != nil {
+            // Handle network errors gracefully
+            if let error = error {
                 DispatchQueue.main.async {
                     self.injectFakeGameIfNeeded(trackedTeams: self.selectedTeams)
                 }
@@ -74,7 +74,9 @@ class MLBStatsService: ObservableObject {
             }
 
             guard let data = data else {
-                self.injectFakeGameIfNeeded(trackedTeams: trackedTeams)
+                DispatchQueue.main.async {
+                    self.injectFakeGameIfNeeded(trackedTeams: self.selectedTeams)
+                }
                 return
             }
 
@@ -83,7 +85,9 @@ class MLBStatsService: ObservableObject {
                 guard let dates = json?["dates"] as? [[String: Any]],
                       !dates.isEmpty,
                       let gamesArray = dates.first?["games"] as? [[String: Any]] else {
-                    self.injectFakeGameIfNeeded(trackedTeams: self.selectedTeams)
+                    DispatchQueue.main.async {
+                        self.injectFakeGameIfNeeded(trackedTeams: self.selectedTeams)
+                    }
                     return
                 }
 
@@ -190,28 +194,89 @@ class MLBStatsService: ObservableObject {
                     let liveData = json?["liveData"] as? [String: Any],
                     let plays = liveData["plays"] as? [String: Any],
                     let currentPlay = plays["currentPlay"] as? [String: Any],
-                    let matchup = currentPlay["matchup"] as? [String: Any]
+                    let matchup = currentPlay["matchup"] as? [String: Any],
+                    let linescore = liveData["linescore"] as? [String: Any]
                 else { return }
 
-                print("ðŸ” matchup contents for \(gameID):", matchup)
+                let pitcherData = matchup["pitcher"] as? [String: Any]
+                let pitcherName = pitcherData?["fullName"] as? String ?? "Unknown Pitcher"
+                let pitcherID = pitcherData?["id"] as? Int ?? 0
+                
+                let batterData = matchup["batter"] as? [String: Any]
+                let batterName = batterData?["fullName"] as? String ?? "Unknown Batter"
+                let batterID = batterData?["id"] as? Int ?? 0
 
-                let pitcherName = ((matchup["pitcher"] as? [String: Any])?["fullName"] as? String) ?? "Unknown Pitcher"
-                let batterName = ((matchup["batter"] as? [String: Any])?["fullName"] as? String) ?? "Unknown Batter"
+                // Get stats from boxscore
+                let boxscore = liveData["boxscore"] as? [String: Any]
+                let teams = boxscore?["teams"] as? [String: Any]
+                
+                let inningState = linescore["inningState"] as? String ?? "Top"
+                let isTopInning = inningState.lowercased().contains("top")
+                let battingTeam = isTopInning ? "away" : "home"
+                let pitchingTeam = isTopInning ? "home" : "away"
+                
+                var pitchCount = 0
+                if let pitchingTeamData = teams?[pitchingTeam] as? [String: Any],
+                   let pitchers = pitchingTeamData["pitchers"] as? [Int],
+                   pitchers.contains(pitcherID),
+                   let players = pitchingTeamData["players"] as? [String: Any] {
+                    let pitcherKey = "ID\(pitcherID)"
+                    if let pitcher = players[pitcherKey] as? [String: Any],
+                       let stats = pitcher["stats"] as? [String: Any],
+                       let pitching = stats["pitching"] as? [String: Any] {
+                        pitchCount = pitching["numberOfPitches"] as? Int ?? 0
+                    }
+                }
+
+                var seasonAvg = 0.0
+                var hits = 0
+                var atBats = 0
+                
+                if let battingTeamData = teams?[battingTeam] as? [String: Any],
+                   let batters = battingTeamData["batters"] as? [Int],
+                   batters.contains(batterID),
+                   let players = battingTeamData["players"] as? [String: Any] {
+                    let batterKey = "ID\(batterID)"
+                    if let batter = players[batterKey] as? [String: Any],
+                       let stats = batter["stats"] as? [String: Any],
+                       let batting = stats["batting"] as? [String: Any] {
+                        hits = batting["hits"] as? Int ?? 0
+                        atBats = batting["atBats"] as? Int ?? 0
+                        
+                        if let avg = batting["avg"] as? String {
+                            seasonAvg = Double(avg) ?? 0.0
+                        }
+                    }
+                    
+                    if seasonAvg == 0.0, let batter = players[batterKey] as? [String: Any],
+                       let seasonStats = batter["seasonStats"] as? [String: Any],
+                       let batting = seasonStats["batting"] as? [String: Any],
+                       let avg = batting["avg"] as? String {
+                        seasonAvg = Double(avg) ?? 0.0
+                    }
+                }
 
                 let count = (currentPlay["count"] as? [String: Any]) ?? [:]
                 let balls = count["balls"] as? Int ?? 0
                 let strikes = count["strikes"] as? Int ?? 0
 
-                let runners = (currentPlay["runners"] as? [[String: Any]]) ?? []
+                let outs = linescore["outs"] as? Int ?? 0
+                let inning = linescore["currentInning"] as? Int ?? 1
+
                 var bases = [false, false, false]
-                for runner in runners {
-                    if let movement = runner["movement"] as? [String: Any],
-                       let end = movement["end"] as? String {
-                        if end == "1B" { bases[0] = true }
-                        if end == "2B" { bases[1] = true }
-                        if end == "3B" { bases[2] = true }
+                if let offense = linescore["offense"] as? [String: Any] {
+                    if let first = offense["first"] as? [String: Any], first["id"] != nil {
+                        bases[0] = true
+                    }
+                    if let second = offense["second"] as? [String: Any], second["id"] != nil {
+                        bases[1] = true
+                    }
+                    if let third = offense["third"] as? [String: Any], third["id"] != nil {
+                        bases[2] = true
                     }
                 }
+
+                print("Updating game \(gameID): Pitcher: \(pitcherName), Pitch Count: \(pitchCount), Batter: \(batterName) (.avg: \(seasonAvg), \(hits)-\(atBats) tonight), Count: \(balls)-\(strikes), Outs: \(outs), Bases: \(bases)")
 
                 DispatchQueue.main.async {
                     if let index = self.currentGames.firstIndex(where: { $0.id == gameID }) {
@@ -222,32 +287,31 @@ class MLBStatsService: ObservableObject {
                             away: game.away,
                             homeScore: game.homeScore,
                             awayScore: game.awayScore,
-                            inning: game.inning,
-                            isTopInning: game.isTopInning,
+                            inning: inning,
+                            isTopInning: isTopInning,
                             pitcher: pitcherName,
-                            pitchCount: game.pitchCount,
+                            pitchCount: pitchCount,
                             batterBalls: balls,
                             batterStrikes: strikes,
                             bases: bases,
                             batter: Batter(
                                 name: batterName,
-                                average: game.batter?.average ?? 0.0,
-                                hits: game.batter?.hits ?? 0,
-                                atBats: game.batter?.atBats ?? 0
+                                average: seasonAvg,
+                                hits: hits,
+                                atBats: atBats
                             ),
                             status: game.status,
-                            outs: game.outs
+                            outs: outs
                         )
                     }
                 }
             } catch {
-                print(" Error parsing game details for \(gameID): \(error)")
+                print("Error parsing game details for \(gameID): \(error)")
             }
         }
 
         task.resume()
 
-        // Repeat updates every 10 seconds
         detailTimers[gameID]?.invalidate()
         detailTimers[gameID] = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: true) { [weak self] _ in
             self?.fetchGameDetails(gamePk: gamePk, gameID: gameID)
@@ -256,7 +320,7 @@ class MLBStatsService: ObservableObject {
 
     public func refreshNow(gameID: String) {
         guard let game = currentGames.first(where: { $0.id == gameID }) else { return }
-        print("ðŸ”„ Manual refresh triggered for \(gameID)")
+        print("Manual refresh triggered for \(gameID)")
         checkForLiveGames(trackedTeams: selectedTeams)
     }
 
@@ -268,7 +332,7 @@ class MLBStatsService: ObservableObject {
 
         let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let width: CGFloat = 340
-        let height: CGFloat = 220
+        let height: CGFloat = 240
         let x = screenFrame.maxX - width - 20
         let y = screenFrame.maxY - height - 60 - (CGFloat(overlayWindows.count) * 240)
 
@@ -287,7 +351,8 @@ class MLBStatsService: ObservableObject {
 
         let hostingView = NSHostingView(
             rootView: OverlayView(
-                game: game,
+                service: self,
+                gameID: game.id,
                 closeAction: { [weak self] in
                     self?.closeOverlay(for: game.id)
                 }
@@ -351,9 +416,7 @@ class MLBStatsService: ObservableObject {
         guard currentGames.isEmpty else { return }
         guard !trackedTeams.isEmpty else { return }
         
-        print("🔍 Fake game injection - tracked teams: \(trackedTeams)")
         let normalizedTracked = Set(trackedTeams.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
-        print("🔍 Normalized tracked: \(normalizedTracked)")
 
         let fakeGames = [
             ("Yankees", "Dodgers", "Los Angeles Dodgers", "New York Yankees", 4, 3),
@@ -362,9 +425,7 @@ class MLBStatsService: ObservableObject {
 
         for (team1, team2, homeFull, awayFull, homeScore, awayScore) in fakeGames {
             let candidates = [team1, team2, homeFull, awayFull].map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-            print("🔍 Checking fake game: \(team1) vs \(team2) - candidates: \(candidates)")
             let shouldInject = candidates.contains { normalizedTracked.contains($0) }
-            print("🔍 Should inject: \(shouldInject)")
             guard shouldInject else { continue }
 
             let gameID = "\(awayFull)_vs_\(homeFull)"
@@ -395,6 +456,12 @@ class MLBStatsService: ObservableObject {
             }
         }
         #endif
+    }
+    
+    deinit {
+        timer?.invalidate()
+        detailTimers.values.forEach { $0.invalidate() }
+        closeAllOverlays()
     }
 }
 

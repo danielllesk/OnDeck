@@ -73,7 +73,6 @@ struct ContentView: View {
 
             Button(action: {
                 let teamNames = Array(selectedTeams.map { $0.name })
-                print("💾 Saving teams: \(teamNames)")
                 if let data = try? JSONEncoder().encode(Array(selectedTeams)) {
                     trackedTeamsData = String(data: data, encoding: .utf8) ?? "[]"
                 }

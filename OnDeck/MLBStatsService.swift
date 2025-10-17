@@ -11,7 +11,7 @@ import SwiftUI
 class MLBStatsService: ObservableObject {
     @Published var currentGames: [GameState] = []
     @Published var selectedTeams: [String] = []
-
+    
     private var overlayWindows: [String: NSWindow] = [:]
     private var overlayDelegates: [String: OverlayWindowDelegate] = [:]
     private var closingOverlayIDs: Set<String> = []
@@ -19,16 +19,21 @@ class MLBStatsService: ObservableObject {
     private var detailTimers: [String: Timer] = [:]
     private var promptedGames: Set<String> = []
     private var lastPromptDate = ""
+    private var spaceChangeTimer: Timer?
 
     func startTracking(teams: [String]) {
-        // reset state and timers on each start
         selectedTeams = teams
         closeAllOverlays()
         timer?.invalidate()
+        spaceChangeTimer?.invalidate()
         detailTimers.values.forEach { $0.invalidate() }
         detailTimers.removeAll()
         currentGames.removeAll()
         promptedGames.removeAll()
+        
+        spaceChangeTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.keepOverlaysOnTop()
+        }
 
         timer = Timer.scheduledTimer(withTimeInterval: 30.0, repeats: true) { [weak self] _ in
             self?.resetPromptedGamesIfNewDay()
@@ -36,6 +41,7 @@ class MLBStatsService: ObservableObject {
         }
         timer?.fire()
     }
+    
     func startTrackingIfNeeded() {
         if !selectedTeams.isEmpty {
             startTracking(teams: selectedTeams)
@@ -50,6 +56,17 @@ class MLBStatsService: ObservableObject {
         if today != lastPromptDate {
             promptedGames.removeAll()
             lastPromptDate = today
+        }
+    }
+
+    private func keepOverlaysOnTop() {
+        for (_, window) in overlayWindows {
+            window.orderFront(nil)
+            
+            // make sire it's on all spaces
+            if !window.collectionBehavior.contains(.canJoinAllSpaces) {
+                window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+            }
         }
     }
 
@@ -205,7 +222,6 @@ class MLBStatsService: ObservableObject {
                 let batterName = batterData?["fullName"] as? String ?? "Unknown Batter"
                 let batterID = batterData?["id"] as? Int ?? 0
 
-                // from da box
                 let boxscore = liveData["boxscore"] as? [String: Any]
                 let teams = boxscore?["teams"] as? [String: Any]
                 
@@ -275,8 +291,6 @@ class MLBStatsService: ObservableObject {
                     }
                 }
 
-                //print("Updating game \(gameID): Pitcher: \(pitcherName), Pitch Count: \(pitchCount), Batter: \(batterName) (.avg: \(seasonAvg), \(hits)-\(atBats) tonight), Count: \(balls)-\(strikes), Outs: \(outs), Bases: \(bases)")
-
                 DispatchQueue.main.async {
                     if let index = self.currentGames.firstIndex(where: { $0.id == gameID }) {
                         let game = self.currentGames[index]
@@ -305,7 +319,7 @@ class MLBStatsService: ObservableObject {
                     }
                 }
             } catch {
-                print("Error parsing game details for \(gameID): \(error)")
+                print("Error parsing details for \(gameID): \(error)")
             }
         }
 
@@ -328,23 +342,32 @@ class MLBStatsService: ObservableObject {
             return
         }
 
-        let screenFrame = NSScreen.main?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let activeScreen = NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
+        let screenFrame = activeScreen?.frame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        
         let width: CGFloat = 340
         let height: CGFloat = 240
         let x = screenFrame.maxX - width - 20
-        let y = screenFrame.maxY - height - 60 - (CGFloat(overlayWindows.count) * 240)
+        let y = screenFrame.maxY - height - 60 - (CGFloat(overlayWindows.count) * 250)
 
-        let overlay = NSWindow(
+        // Nspanel instead of window(this the reason)
+        let overlay = NSPanel(
             contentRect: NSRect(x: x, y: y, width: width, height: height),
-            styleMask: [.titled, .closable, .miniaturizable],
+            styleMask: [.titled, .closable, .utilityWindow, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
 
         overlay.title = "\(game.away) @ \(game.home)"
         overlay.isMovableByWindowBackground = true
+        
+        overlay.isFloatingPanel = true
         overlay.level = .floating
+        overlay.becomesKeyOnlyIfNeeded = true
+        overlay.worksWhenModal = false
         overlay.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        
+        overlay.hidesOnDeactivate = false
         overlay.isReleasedWhenClosed = false
 
         let hostingView = NSHostingView(
@@ -357,9 +380,13 @@ class MLBStatsService: ObservableObject {
             )
         )
         overlay.contentView = hostingView
+        overlay.isOpaque = true
+        overlay.backgroundColor = NSColor.windowBackgroundColor
+        
         let delegate = OverlayWindowDelegate(service: self, gameID: game.id)
         overlay.delegate = delegate
-        overlay.makeKeyAndOrderFront(nil)
+        overlay.orderFront(nil)
+        
         overlayWindows[game.id] = overlay
         overlayDelegates[game.id] = delegate
     }
@@ -457,6 +484,7 @@ class MLBStatsService: ObservableObject {
     
     deinit {
         timer?.invalidate()
+        spaceChangeTimer?.invalidate()
         detailTimers.values.forEach { $0.invalidate() }
         closeAllOverlays()
     }
@@ -479,6 +507,6 @@ class OverlayWindowDelegate: NSObject, NSWindowDelegate {
     }
 
     deinit {
-        print("OverlayWindowDelegate for \(gameID) deinitialized safely.")
+        print("deinitialized")
     }
 }

@@ -11,7 +11,7 @@ import SwiftUI
 class MLBStatsService: ObservableObject {
     @Published var currentGames: [GameState] = []
     @Published var selectedTeams: [String] = []
-    @Published var developerModeEnabled: Bool = true
+    @Published var developerModeEnabled: Bool = false
     
     private var overlayWindows: [String: NSWindow] = [:]
     private var overlayDelegates: [String: OverlayWindowDelegate] = [:]

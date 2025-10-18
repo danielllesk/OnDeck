@@ -11,6 +11,7 @@ import SwiftUI
 class MLBStatsService: ObservableObject {
     @Published var currentGames: [GameState] = []
     @Published var selectedTeams: [String] = []
+    @Published var developerModeEnabled: Bool = true
     
     private var overlayWindows: [String: NSWindow] = [:]
     private var overlayDelegates: [String: OverlayWindowDelegate] = [:]
@@ -436,8 +437,7 @@ class MLBStatsService: ObservableObject {
     }
 
     private func injectFakeGameIfNeeded(trackedTeams: [String]) {
-        #if DEBUG
-        guard currentGames.isEmpty else { return }
+        guard developerModeEnabled, currentGames.isEmpty else { return }
         guard !trackedTeams.isEmpty else { return }
         
         let normalizedTracked = Set(trackedTeams.map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() })
@@ -479,7 +479,6 @@ class MLBStatsService: ObservableObject {
                 self.promptUserBeforeOverlay(game: newGame)
             }
         }
-        #endif
     }
     
     deinit {

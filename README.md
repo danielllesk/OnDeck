@@ -6,8 +6,9 @@ It provides live score overlays, real-time stats, and instant updates for your f
 ---
 ## DEMO
 <a href="https://drive.google.com/file/d/1A2ZumdYbso7bBaT-2-2EIHGWRHYQ5L9h/view?usp=sharing">
-  <img src="OnDeckLogo(3).png" alt="Watch the Demo" width="300">
+  <img src="OnDeckLogo(3).png" alt="Watch the Demo" width="500">
 </a>
+
 ---
 ## ⚾️ Overview
 

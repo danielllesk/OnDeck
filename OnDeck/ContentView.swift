@@ -164,5 +164,12 @@ struct ContentView: View {
         .onAppear {
             selectedTeams = Set()
         }
+        Button(action: {
+            mlbService.developerModeEnabled.toggle()
+        }) {
+            Color.clear.frame(width: 0, height: 0)
+        }
+        .keyboardShortcut("d", modifiers: [.command, .shift])
+        .hidden()
     }
 }

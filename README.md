@@ -5,7 +5,7 @@ It provides live score overlays, real-time stats, and instant updates for your f
 
 ---
 ## DEMO
-(https://drive.google.com/file/d/1A2ZumdYbso7bBaT-2-2EIHGWRHYQ5L9h/view?usp=sharing) 
+[!Watch the Demo! (OnDeckLogo.png)](https://drive.google.com/file/d/1A2ZumdYbso7bBaT-2-2EIHGWRHYQ5L9h/view?usp=sharing) 
 ---
 ## ⚾️ Overview
 

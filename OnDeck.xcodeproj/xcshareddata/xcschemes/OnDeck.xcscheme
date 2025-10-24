@@ -96,6 +96,7 @@
    </AnalyzeAction>
    <ArchiveAction
       buildConfiguration = "Release"
+      customArchiveName = "OnDeck"
       revealArchiveInOrganizer = "YES">
    </ArchiveAction>
 </Scheme>

@@ -10,9 +10,8 @@ import SVGView
 
 struct ContentView: View {
     @StateObject private var mlbService = MLBStatsService()
-    
+    @AppStorage("developerModeEnabled") private var developerModeEnabled = false
     @AppStorage("trackedTeams") private var trackedTeamsData: String = "[]"
-    
     @State private var selectedTeams: Set<MLBTeam> = []
     @State private var availableTeams: [MLBTeam] = allTeams
     
@@ -76,6 +75,11 @@ struct ContentView: View {
                 if let data = try? JSONEncoder().encode(Array(selectedTeams)) {
                     trackedTeamsData = String(data: data, encoding: .utf8) ?? "[]"
                 }
+                let alert = NSAlert()
+                alert.messageText = " Your Teams Have been Saved!"
+                alert.informativeText = "You are now tracking \(trackedTeamsArray.count) Team(s)"
+                alert.alertStyle = .informational
+                alert.runModal()
                 mlbService.startTracking(teams: teamNames)
             }) {
                 Label("Save & Start Tracking", systemImage: "baseball.fill")
@@ -91,13 +95,21 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Live Games (\(mlbService.currentGames.count))")
                     .font(.headline)
+                Text("Tracked Teams (\(trackedTeamsArray.count))")
+                    .font(.headline)
                 
                 if mlbService.currentGames.isEmpty {
                     HStack {
                         Image(systemName: "moon.stars.fill")
                             .foregroundColor(.secondary)
-                        Text("No live games right now.")
+                        if trackedTeamsArray.count == 0{
+                            Text("No teams saved yet")
+                                .foregroundColor(.secondary)
+                        }
+                        else{
+                            Text("No live games right now.")
                             .foregroundColor(.secondary)
+                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
@@ -165,7 +177,8 @@ struct ContentView: View {
             selectedTeams = Set()
         }
         Button(action: {
-            mlbService.developerModeEnabled.toggle()
+            developerModeEnabled.toggle()
+            developerModeEnabled = developerModeEnabled
         }) {
             Color.clear.frame(width: 0, height: 0)
         }

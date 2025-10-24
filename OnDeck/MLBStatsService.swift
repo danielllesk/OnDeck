@@ -45,6 +45,11 @@ class MLBStatsService: ObservableObject {
     func startTrackingIfNeeded() {
         if !selectedTeams.isEmpty {
             startTracking(teams: selectedTeams)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                if self.developerModeEnabled && self.currentGames.isEmpty {
+                    self.injectFakeGameIfNeeded(trackedTeams: self.selectedTeams)
+                }
+            }
         }
     }
 

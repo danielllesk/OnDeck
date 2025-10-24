@@ -76,8 +76,8 @@ struct ContentView: View {
                     trackedTeamsData = String(data: data, encoding: .utf8) ?? "[]"
                 }
                 let alert = NSAlert()
-                alert.messageText = " Your Teams Have been Saved!"
-                alert.informativeText = "You are now tracking \(trackedTeamsArray.count) Team(s)"
+                alert.messageText = " Your Teams Have Been Saved!"
+                alert.informativeText = "You are now tracking \(trackedTeamsArray.count) team(s)"
                 alert.alertStyle = .informational
                 alert.runModal()
                 mlbService.startTracking(teams: teamNames)

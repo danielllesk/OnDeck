@@ -71,13 +71,13 @@ struct ContentView: View {
             .cornerRadius(10)
 
             Button(action: {
-                let teamNames = Array(selectedTeams.map { $0.name })
+                let teamNames = selectedTeams.map(\.name)
                 if let data = try? JSONEncoder().encode(Array(selectedTeams)) {
                     trackedTeamsData = String(data: data, encoding: .utf8) ?? "[]"
                 }
                 let alert = NSAlert()
-                alert.messageText = " Your Teams Have Been Saved!"
-                alert.informativeText = "You are now tracking \(trackedTeamsArray.count) team(s)"
+                alert.messageText = "Your Teams Have Been Saved!"
+                alert.informativeText = "You are now tracking \(teamNames.count) team(s)"
                 alert.alertStyle = .informational
                 alert.runModal()
                 mlbService.startTracking(teams: teamNames)
@@ -174,15 +174,14 @@ struct ContentView: View {
         .padding(24)
         .frame(width: 450, height: 700)
         .onAppear {
-            selectedTeams = Set()
+            selectedTeams = Set(trackedTeamsArray)
         }
-        Button(action: {
-            developerModeEnabled.toggle()
-            developerModeEnabled = developerModeEnabled
-        }) {
-            Color.clear.frame(width: 0, height: 0)
+        .background {
+            Button(action: { developerModeEnabled.toggle() }) {
+                Color.clear.frame(width: 0, height: 0)
+            }
+            .keyboardShortcut("d", modifiers: [.command, .shift])
+            .hidden()
         }
-        .keyboardShortcut("d", modifiers: [.command, .shift])
-        .hidden()
     }
 }

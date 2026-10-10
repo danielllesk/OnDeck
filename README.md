@@ -1,101 +1,151 @@
-# 🧢 OnDeck — Live MLB Game Tracker for macOS
+# OnDeck — Live MLB Game Tracker for macOS
 
-**OnDeck** is a beautifully designed macOS app that keeps baseball fans up to date with every pitch, hit, and run. Right from your desktop!  
-It provides live score overlays, real-time stats, and instant updates for your favorite teams during the MLB season.
+**OnDeck** is a macOS app that keeps baseball fans up to date with every pitch, hit, and run from the desktop. It floats live score overlays, shows real-time stats, and can push score and lineup alerts when a backend is running.
 
 ---
+
 ## DEMO
+
 <a href="https://drive.google.com/file/d/1vumWW37yPY5pOiLYQaJXnf6N-Gq1QA3L/view?usp=sharing">
   <img src="OnDeckLogo(3).png" alt="Watch the Demo" width="500">
 </a>
 
 ---
-## ⚾️ Overview
 
-Baseball is best enjoyed in real time, but most apps require you to open a browser, load ads, and dig through menus.  
-**OnDeck** brings the game to you with lightweight live score overlays that update automatically every 10 seconds.
+## Overview
+
+Baseball is best in real time, but most apps bury the game behind browsers and ads. OnDeck brings it to you with lightweight scorebug overlays that refresh automatically.
 
 You can:
-- 🧢 **Select your favorite teams** to follow throughout the season.  
-- 🎯 **Get notified when a game goes live.**  
-- 🪶 **Float live “scorebug” windows** that display inning, bases, count, pitcher, and batter info.  
-- 🧮 **Track real-time stats**, including hits, at-bats, and batting averages.  
-- 💾 **Save preferences locally**, so your selections persist across sessions.
+
+- Select favorite teams to follow through the season
+- Get notified when a tracked game goes live
+- Float scorebug windows with inning, bases, count, outs, pitcher, pitch count, and batter info
+- Track tonight’s hits/at-bats and season (or postseason) average
+- Save preferences locally so selections persist across sessions
+- Optionally connect to a small backend for score-change and lineup notifications (SSE + APNs)
 
 ---
 
-## 🖥️ How It Works
+## Architecture
 
-OnDeck uses the official **[MLB Stats API](https://statsapi.mlb.com)** a public data source provided by Major League Baseball  to retrieve:
-- Live scores and inning status  
-- Batter and pitcher statistics  
-- Base occupancy and count data  
-- Real-time game events (outs, balls, strikes)
+```
+┌─────────────────────┐         MLB Stats API
+│  OnDeck (macOS)     │◄───────────────────────┐
+│  • team picker      │                        │
+│  • scorebug overlay │  poll schedule + feed  │
+│  • local prefs      │                        │
+└─────────┬───────────┘                        │
+          │ register teams / SSE stream        │
+          ▼                                    │
+┌─────────────────────┐                        │
+│  server/ (Node)     │────────────────────────┘
+│  • Postgres         │  poll schedule + scores
+│  • job queue         │
+│  • notify worker    │──► in-app SSE + APNs
+└─────────────────────┘
+```
 
-The app fetches this data using Apple’s native **`URLSession`** networking layer, ensuring smooth, secure, and efficient communication.  
-All updates occur on a background thread to keep your Mac responsive while games refresh every 10 seconds.
+**Mac app** — polls the public [MLB Stats API](https://statsapi.mlb.com) for schedule and per-game `feed/live` details. Parsing lives in `MLBResponseParser` so the live scoreboard can be unit-tested without the UI.
 
-No login or account is required! OnDeck never stores personal data.  
-All preferences are securely stored locally on your Mac via **AppStorage** (using `UserDefaults` under the hood).
-
----
-
-## 🎨 Design Philosophy
-
-OnDeck is built with **SwiftUI** and **AppKit**, combining the modern look of macOS with the flexibility of native rendering.
-
-The floating overlays use:
-- **NSWindow** for lightweight, movable scorecards
-- **SVGView** for scalable team logos
-- **Combine publishers** for reactive updates as data changes
-- **Timers and async tasks** to poll live data without blocking the UI
-
-Each overlay is designed to:
-- Float above other windows (but never interfere with interaction)
-- Auto-close when a game ends
-- Remain open independently of the main app window
-- Moveable! if you dont like it in the right corner you can move it anywhere you want on your screen
-- Update seamlessly in real time
+**Server (optional)** — Postgres stores games, lineups, devices, and a job queue. A worker claims jobs with `FOR UPDATE SKIP LOCKED`, diffs scores/lineups, and notifies subscribed devices over SSE (and APNs when credentials are set).
 
 ---
 
-## 🧠 Technical Details
+## Scorebug overlay
+
+Each floating overlay shows:
+
+| Area | What’s shown |
+|------|----------------|
+| Header | Away/home names, logos, scores |
+| Status | Inning (▲/▼), balls-strikes count |
+| At bat | Batter name, average, tonight’s H-AB |
+| Pitcher | Name and **pitch count** (`N pitches`, under the pitcher name) |
+| Bases / outs | Diamond occupancy and three-out dots |
+
+Overlays use `NSWindow`, stay above other windows without stealing focus, can be dragged anywhere, and close when the game ends.
+
+---
+
+## How live updates work
+
+### In the Mac app
+
+1. **Save & Start Tracking** stores selected teams and begins schedule polling.
+2. Every ~30 seconds the app checks MLB’s schedule for live games involving those teams.
+3. When a game goes live, you’re prompted to open a floating score overlay.
+4. While an overlay is open, the app polls that game’s `feed/live` endpoint for batter, pitcher, pitch count, bases, count, outs, inning, and scores.
+5. When the game ends, the overlay closes and tracking for that game stops.
+
+### With the backend
+
+1. Saving teams also registers the device (`POST /v1/devices`) and opens an SSE stream.
+2. The server polls today’s MLB schedule (America/New_York date).
+3. Score changes and newly posted starting nines enqueue `notify` jobs.
+4. The worker delivers one notification per subscribed device over the live stream (and APNs when configured).
+
+Debug builds talk to `http://127.0.0.1:8787` by default. Release builds use the `BackendBaseURL` Info.plist value, or the `backendBaseURL` user default.
+
+---
+
+## Run locally
+
+### Mac app
+
+Open `OnDeck.xcodeproj` in Xcode and run the **OnDeck** scheme (macOS 13+).
+
+### Server
+
+```bash
+cd server
+docker compose up --build
+```
+
+- Health: `curl http://127.0.0.1:8787/health`
+- Weekly active devices: `curl http://127.0.0.1:8787/v1/stats/weekly`
+- Manual subscribe:
+
+```bash
+curl -X POST http://127.0.0.1:8787/v1/devices \
+  -H 'content-type: application/json' \
+  -d '{"id":"11111111-1111-4111-8111-111111111111","teams":["Blue Jays"]}'
+```
+
+See [`server/README.md`](server/README.md) for env vars and more detail.
+
+---
+
+## Technical details
 
 | Component | Description |
-|------------|-------------|
-| **Language** | Swift |
-| **Frameworks** | SwiftUI, AppKit, Combine, Foundation |
-| **Networking** | `URLSession` (async background calls) |
-| **Graphics** | SVGView for team logos |
-| **Data Source** | MLB Stats API (public endpoint) |
-| **Platform** | macOS 13.0 or later |
+|-----------|-------------|
+| Language | Swift (app), TypeScript (server) |
+| App frameworks | SwiftUI, AppKit, Combine, Foundation |
+| Networking | `URLSession` (app); Node HTTP + SSE (server) |
+| Graphics | SVGView for team logos |
+| Data source | MLB Stats API |
+| Persistence | `AppStorage` / `UserDefaults` (app); Postgres (server) |
+| Platform | macOS 13.0+ |
+| CI | Xcode unit tests + server `npm test` on PRs and `main` |
+
+No login or account is required for the core overlay experience. Preferences stay on your Mac. The optional backend only stores a device id, team subscriptions, and game/notification state.
 
 ---
 
-## 🧩 How Live Updates Work
+## Project layout
 
-1. **Tracking Begins:**  
-   When you click **“Save & Start Tracking”**, OnDeck saves your selected teams and begins polling MLB’s live schedule endpoint.
-
-2. **Game Detection:**  
-   Every 10 seconds, the app checks for live or in-progress games involving your teams.
-
-3. **User Prompt:**  
-   When one of your teams goes live, you’re prompted to open a **floating score overlay**.
-
-4. **Detailed Updates:**  
-   Once an overlay is active, OnDeck starts calling each game’s `feed/live` endpoint to retrieve:
-   - Batter name and season, or postseason, average  
-   - Pitcher name and pitch count  
-   - Current base occupancy  
-   - Count (balls, strikes, outs)  
-   - Inning and team scores  
-
-5. **Automatic Refresh:**  
-   Overlays refresh automatically — no manual input required.
-
-6. **Cleanup:**  
-   When a game concludes, OnDeck closes the overlay and removes the entry from live tracking.
+```
+OnDeck/                 SwiftUI macOS app
+  Models/               GameState + MLBResponseParser
+  LiveUpdatesClient.swift   Backend register + SSE
+  OverlayView.swift     Scorebug UI (incl. pitch count)
+  MLBStatsService.swift Overlay windows + polling
+OnDeckTests/            Parser and game-state tests
+server/                 Postgres + Node poller/worker
+.github/workflows/      CI for app and server
+```
 
 ---
+
 GO JAYS GO!

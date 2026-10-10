@@ -81,6 +81,8 @@ struct ContentView: View {
                 alert.alertStyle = .informational
                 alert.runModal()
                 mlbService.startTracking(teams: teamNames)
+                let tracked = teamNames
+                Task { await LiveUpdatesClient.shared.sync(teams: tracked) }
             }) {
                 Label("Save & Start Tracking", systemImage: "baseball.fill")
                     .frame(maxWidth: .infinity)
@@ -175,6 +177,10 @@ struct ContentView: View {
         .frame(width: 450, height: 700)
         .onAppear {
             selectedTeams = Set(trackedTeamsArray)
+            let names = trackedTeamsArray.map(\.name)
+            if !names.isEmpty {
+                Task { await LiveUpdatesClient.shared.sync(teams: names) }
+            }
         }
         .background {
             Button(action: { developerModeEnabled.toggle() }) {

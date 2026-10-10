@@ -1,5 +1,8 @@
 DerivedData/
 build/
+node_modules/
+server/dist/
+.env
 *.xcuserstate
 xcuserdata/
 

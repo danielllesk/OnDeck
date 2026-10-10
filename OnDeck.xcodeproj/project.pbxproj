@@ -8,6 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		50F6423E2E9DA19000570BE3 /* MLBTeams.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F6423D2E9DA19000570BE3 /* MLBTeams.swift */; };
+		50F642512E9F110100570BE3 /* MLBResponseParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F642502E9F110100570BE3 /* MLBResponseParser.swift */; };
+		50F642612E9F120100570BE3 /* LiveUpdatesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F642602E9F120100570BE3 /* LiveUpdatesClient.swift */; };
+		50F642632E9F120100570BE3 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 50F642622E9F120100570BE3 /* PrivacyInfo.xcprivacy */; };
 		50F642422E9F00F300570BE3 /* SVGView in Frameworks */ = {isa = PBXBuildFile; productRef = 50F642412E9F00F300570BE3 /* SVGView */; };
 		50FC32132E9B762600C242DC /* OnDeckApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC32122E9B762600C242DC /* OnDeckApp.swift */; };
 		50FC32152E9B762600C242DC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC32142E9B762600C242DC /* ContentView.swift */; };
@@ -19,8 +22,6 @@
 		50FC323E2E9B981F00C242DC /* OverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC323D2E9B981F00C242DC /* OverlayView.swift */; };
 		50FC32402E9B985500C242DC /* MLBStatsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC323F2E9B985500C242DC /* MLBStatsService.swift */; };
 		50FC32472E9B9B3000C242DC /* GameState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC32462E9B9B3000C242DC /* GameState.swift */; };
-		50FC32492E9B9C6100C242DC /* ViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50FC32482E9B9C6100C242DC /* ViewModel.swift */; };
-		50FC324B2E9C76CE00C242DC /* .gitignore in Resources */ = {isa = PBXBuildFile; fileRef = 50FC324A2E9C76CE00C242DC /* .gitignore */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -42,6 +43,9 @@
 
 /* Begin PBXFileReference section */
 		50F6423D2E9DA19000570BE3 /* MLBTeams.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBTeams.swift; sourceTree = "<group>"; };
+		50F642502E9F110100570BE3 /* MLBResponseParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBResponseParser.swift; sourceTree = "<group>"; };
+		50F642602E9F120100570BE3 /* LiveUpdatesClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveUpdatesClient.swift; sourceTree = "<group>"; };
+		50F642622E9F120100570BE3 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		50F6423F2E9EF15900570BE3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		50FC320F2E9B762600C242DC /* OnDeck.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = OnDeck.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		50FC32122E9B762600C242DC /* OnDeckApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeckApp.swift; sourceTree = "<group>"; };
@@ -57,8 +61,6 @@
 		50FC323D2E9B981F00C242DC /* OverlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverlayView.swift; sourceTree = "<group>"; };
 		50FC323F2E9B985500C242DC /* MLBStatsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MLBStatsService.swift; sourceTree = "<group>"; };
 		50FC32462E9B9B3000C242DC /* GameState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GameState.swift; sourceTree = "<group>"; };
-		50FC32482E9B9C6100C242DC /* ViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModel.swift; sourceTree = "<group>"; };
-		50FC324A2E9C76CE00C242DC /* .gitignore */ = {isa = PBXFileReference; lastKnownFileType = text; path = .gitignore; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -90,7 +92,6 @@
 		50FC32062E9B762600C242DC = {
 			isa = PBXGroup;
 			children = (
-				50FC324A2E9C76CE00C242DC /* .gitignore */,
 				50FC32112E9B762600C242DC /* OnDeck */,
 				50FC32232E9B762800C242DC /* OnDeckTests */,
 				50FC322D2E9B762800C242DC /* OnDeckUITests */,
@@ -117,10 +118,11 @@
 				50FC32142E9B762600C242DC /* ContentView.swift */,
 				50FC323D2E9B981F00C242DC /* OverlayView.swift */,
 				50FC323F2E9B985500C242DC /* MLBStatsService.swift */,
+				50F642602E9F120100570BE3 /* LiveUpdatesClient.swift */,
+				50F642622E9F120100570BE3 /* PrivacyInfo.xcprivacy */,
 				50FC32162E9B762700C242DC /* Assets.xcassets */,
 				50FC321B2E9B762700C242DC /* OnDeck.entitlements */,
 				50FC32182E9B762700C242DC /* Preview Content */,
-				50FC32482E9B9C6100C242DC /* ViewModel.swift */,
 				50F6423D2E9DA19000570BE3 /* MLBTeams.swift */,
 			);
 			path = OnDeck;
@@ -155,6 +157,7 @@
 			isa = PBXGroup;
 			children = (
 				50FC32462E9B9B3000C242DC /* GameState.swift */,
+				50F642502E9F110100570BE3 /* MLBResponseParser.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -270,7 +273,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				50FC321A2E9B762700C242DC /* Preview Assets.xcassets in Resources */,
-				50FC324B2E9C76CE00C242DC /* .gitignore in Resources */,
+				50F642632E9F120100570BE3 /* PrivacyInfo.xcprivacy in Resources */,
 				50FC32172E9B762700C242DC /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -299,9 +302,10 @@
 				50FC323E2E9B981F00C242DC /* OverlayView.swift in Sources */,
 				50FC32152E9B762600C242DC /* ContentView.swift in Sources */,
 				50FC32472E9B9B3000C242DC /* GameState.swift in Sources */,
+				50F642512E9F110100570BE3 /* MLBResponseParser.swift in Sources */,
 				50FC32132E9B762600C242DC /* OnDeckApp.swift in Sources */,
-				50FC32492E9B9C6100C242DC /* ViewModel.swift in Sources */,
 				50F6423E2E9DA19000570BE3 /* MLBTeams.swift in Sources */,
+				50F642612E9F120100570BE3 /* LiveUpdatesClient.swift in Sources */,
 				50FC32402E9B985500C242DC /* MLBStatsService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

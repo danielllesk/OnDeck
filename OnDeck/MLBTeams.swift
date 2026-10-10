@@ -47,80 +47,13 @@ let allTeams: [MLBTeam] = [
 ]
 
 func logoURL(for team: String) -> String {
-    let teamLower = team.lowercased()
-    
-    let teamMap: [String: String] = [
-        "yankees": "147",
-        "new york yankees": "147",
-        "blue jays": "141",
-        "toronto blue jays": "141",
-        "red sox": "111",
-        "boston red sox": "111",
-        "orioles": "110",
-        "baltimore orioles": "110",
-        "rays": "139",
-        "tampa bay rays": "139",
-        "astros": "117",
-        "houston astros": "117",
-        "rangers": "140",
-        "texas rangers": "140",
-        "mariners": "136",
-        "seattle mariners": "136",
-        "angels": "108",
-        "los angeles angels": "108",
-        "athletics": "133",
-        "oakland athletics": "133",
-        "dodgers": "119",
-        "los angeles dodgers": "119",
-        "giants": "137",
-        "san francisco giants": "137",
-        "cubs": "112",
-        "chicago cubs": "112",
-        "cardinals": "138",
-        "st. louis cardinals": "138",
-        "braves": "144",
-        "atlanta braves": "144",
-        "mets": "121",
-        "new york mets": "121",
-        "phillies": "143",
-        "philadelphia phillies": "143",
-        "nationals": "120",
-        "washington nationals": "120",
-        "guardians": "114",
-        "cleveland guardians": "114",
-        "tigers": "116",
-        "detroit tigers": "116",
-        "twins": "142",
-        "minnesota twins": "142",
-        "white sox": "145",
-        "chicago white sox": "145",
-        "royals": "118",
-        "kansas city royals": "118",
-        "diamondbacks": "109",
-        "arizona diamondbacks": "109",
-        "padres": "135",
-        "san diego padres": "135",
-        "rockies": "115",
-        "colorado rockies": "115",
-        "marlins": "146",
-        "miami marlins": "146",
-        "pirates": "134",
-        "pittsburgh pirates": "134",
-        "reds": "113",
-        "cincinnati reds": "113",
-        "brewers": "158",
-        "milwaukee brewers": "158"
-    ]
-    
-    if let teamID = teamMap[teamLower] {
-        return "https://www.mlbstatic.com/team-logos/\(teamID).svg"
+    let needle = team.lowercased()
+    let matches = allTeams.filter { entry in
+        let name = entry.name.lowercased()
+        return needle == name || needle.contains(name) || name.contains(needle)
     }
-    
-    for (key, value) in teamMap {
-        if teamLower.contains(key) || key.contains(teamLower) {
-            return "https://www.mlbstatic.com/team-logos/\(value).svg"
-        }
+    if let best = matches.max(by: { $0.name.count < $1.name.count }) {
+        return best.logoURL
     }
-    
     return "https://www.mlbstatic.com/team-logos/1.svg"
 }
